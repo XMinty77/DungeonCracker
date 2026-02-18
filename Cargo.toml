@@ -1,0 +1,32 @@
+[package]
+name = "dungeon_cracker"
+version = "0.1.0"
+edition = "2021"
+description = "Minecraft dungeon seed cracker — recovers world seeds from dungeon floor patterns"
+license = "MIT"
+readme = "README.md"
+keywords = ["minecraft", "seed", "dungeon", "lattice", "cracker"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "dungeon_cracker"
+path = "src/main.rs"
+
+[dependencies]
+num-bigint = "0.4"
+num-rational = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+wasm-bindgen = { version = "0.2", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+
+[features]
+default = []
+wasm = ["wasm-bindgen", "serde", "serde_json"]
+
+[profile.release]
+opt-level = 3
+lto = true
