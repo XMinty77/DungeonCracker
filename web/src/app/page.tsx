@@ -8,7 +8,9 @@ import { FloorGrid } from "@/components/FloorGrid";
 import { OptionsForm } from "@/components/OptionsForm";
 import { ResultsPanel } from "@/components/ResultsPanel";
 import { ParticleBackground } from "@/components/ParticleBackground";
+import { PictureImportDialog } from "@/components/PictureImportDialog";
 import { useCracker } from "@/hooks/useCracker";
+import { useImageDrop } from "@/hooks/useImageDrop";
 import {
   Tile,
   TILE_COUNT,
@@ -72,7 +74,25 @@ export default function Home() {
   const [version, setVersion] = useState<MCVersion>("1.13");
   const [biome, setBiome] = useState<Biome>("notdesert");
 
+  const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
+
   const cracker = useCracker();
+
+  // ── Apply a detected floor from image analysis ──
+  const handleImageApply = useCallback(
+    (floor: Tile[][], sizeIndex: number) => {
+      setFloorData(floor);
+      setFloorSizeIndex(sizeIndex);
+    },
+    []
+  );
+
+  // ── Global paste / drag-drop (when dialog is NOT open) ──
+  useImageDrop({
+    floorSizeIndex,
+    dialogOpen: pictureDialogOpen,
+    onApply: handleImageApply,
+  });
 
   // ── Restore from URL hash on mount ──
   useEffect(() => {
@@ -224,6 +244,7 @@ export default function Home() {
               onFloorSizeChange={setFloorSizeIndex}
               onPatternChange={handlePatternChange}
               onClear={handleClear}
+              onUsePicture={() => setPictureDialogOpen(true)}
             />
           </div>
 
@@ -299,6 +320,14 @@ export default function Home() {
           </div>
         </div>
       </main>
+
+      {/* ── Picture Import Dialog ── */}
+      <PictureImportDialog
+        open={pictureDialogOpen}
+        floorSizeIndex={floorSizeIndex}
+        onClose={() => setPictureDialogOpen(false)}
+        onApply={handleImageApply}
+      />
     </div>
   );
 }

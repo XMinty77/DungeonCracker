@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { Grid3x3, Trash2, Copy, Check, Paintbrush, MousePointerClick } from "lucide-react";
+import { Grid3x3, Trash2, Copy, Check, Paintbrush, MousePointerClick, ImageIcon } from "lucide-react";
 import {
   Tile,
   TILE_COUNT,
@@ -22,6 +22,7 @@ interface FloorGridProps {
   onFloorSizeChange: (index: number) => void;
   onPatternChange: (pattern: string) => void;
   onClear: () => void;
+  onUsePicture?: () => void;
 }
 
 export function FloorGrid({
@@ -32,11 +33,12 @@ export function FloorGrid({
   onFloorSizeChange,
   onPatternChange,
   onClear,
+  onUsePicture,
 }: FloorGridProps) {
   const fs = FLOOR_SIZES[floorSizeIndex];
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [inputMode, setInputMode] = useState<InputMode>("fast");
+  const [inputMode, setInputMode] = useState<InputMode>("cycle");
   const [initialAnimDone, setInitialAnimDone] = useState(false);
   const patternRef = useRef<HTMLInputElement>(null);
   const cursorRef = useRef<number | null>(null);
@@ -341,8 +343,8 @@ export function FloorGrid({
           <div className="flex">
             {(
               [
-                { mode: "fast" as InputMode, label: "Paint", icon: Paintbrush },
                 { mode: "cycle" as InputMode, label: "Cycle", icon: MousePointerClick },
+                { mode: "fast" as InputMode, label: "Paint", icon: Paintbrush },
               ] as const
             ).map(({ mode, label, icon: Icon }) => {
               const isActive = inputMode === mode;
@@ -370,6 +372,17 @@ export function FloorGrid({
             <Trash2 className="w-3.5 h-3.5" />
             Clear
           </button>
+
+          {onUsePicture && (
+            <button
+              onClick={onUsePicture}
+              className="mc-btn h-8 !py-0 !px-3 !text-xs"
+              title="Import floor pattern from a screenshot"
+            >
+              <ImageIcon className="w-3.5 h-3.5" />
+              Use Picture
+            </button>
+          )}
         </div>
         {/* Legend */}
         <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-mc-border">
