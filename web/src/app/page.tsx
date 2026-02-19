@@ -15,6 +15,8 @@ import {
   Tile,
   TILE_COUNT,
   FLOOR_SIZES,
+  MC_VERSIONS,
+  BIOMES,
   type MCVersion,
   type Biome,
 } from "@/lib/types";
@@ -99,7 +101,7 @@ export default function Home() {
     try {
       const hash = window.location.hash.slice(1); // remove "#"
       if (hash) {
-        // Format: sizeIndex:pattern:x,y,z
+        // Format: sizeIndex:pattern:x,y,z:version:biome
         const parts = hash.split(":");
         if (parts.length >= 2) {
           const idx = parseInt(parts[0], 10);
@@ -119,6 +121,14 @@ export default function Home() {
               setSpawnerY(coords[1]);
               setSpawnerZ(coords[2]);
             }
+          }
+          // Restore version if present and valid
+          if (parts[3] && (MC_VERSIONS as readonly string[]).includes(parts[3])) {
+            setVersion(parts[3] as MCVersion);
+          }
+          // Restore biome if present and valid
+          if (parts[4] && (BIOMES as readonly string[]).includes(parts[4])) {
+            setBiome(parts[4] as Biome);
           }
         } else {
           // Try as plain pattern with default size index 0
@@ -145,11 +155,11 @@ export default function Home() {
     if (!hydrated) return;
     const coordsPart =
       spawnerX || spawnerY || spawnerZ
-        ? `:${spawnerX},${spawnerY},${spawnerZ}`
+        ? `${spawnerX},${spawnerY},${spawnerZ}`
         : "";
-    const fragment = `${floorSizeIndex}:${patternString}${coordsPart}`;
+    const fragment = `${floorSizeIndex}:${patternString}:${coordsPart}:${version}:${biome}`;
     window.history.replaceState(null, "", `#${fragment}`);
-  }, [patternString, floorSizeIndex, spawnerX, spawnerY, spawnerZ, hydrated]);
+  }, [patternString, floorSizeIndex, spawnerX, spawnerY, spawnerZ, version, biome, hydrated]);
 
   const handleTileChange = useCallback(
     (z: number, x: number, tile: Tile) => {
