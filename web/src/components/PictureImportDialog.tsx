@@ -24,7 +24,8 @@ import {
   analyseImage,
   analysisToFloor,
   inferFloorSizeIndex,
-  DEFAULT_SETTINGS,
+  loadSettings,
+  saveSettings,
   type AnalysisSettings,
 } from "@/lib/image-analysis";
 
@@ -54,8 +55,17 @@ export function PictureImportDialog({
   // null = follow external prop; number = user/inferred override
   const [sizeOverride, setSizeOverride] = useState<number | null>(null);
   const sizeIndex = sizeOverride ?? externalSizeIndex;
-  const [settings, setSettings] = useState<AnalysisSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<AnalysisSettings>(loadSettings);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Persist settings to localStorage whenever they change
+  const updateSettings = useCallback((updater: (prev: AnalysisSettings) => AnalysisSettings) => {
+    setSettings((prev) => {
+      const next = updater(prev);
+      saveSettings(next);
+      return next;
+    });
+  }, []);
 
   // ── Drag state ──
   const [isDragging, setIsDragging] = useState(false);
@@ -498,7 +508,7 @@ export function PictureImportDialog({
                                   step={1}
                                   value={settings.sensitivityThreshold * 1000}
                                   onChange={(e) =>
-                                    setSettings((s) => ({
+                                    updateSettings((s) => ({
                                       ...s,
                                       sensitivityThreshold: parseInt(e.target.value, 10) / 1000,
                                     }))
@@ -530,7 +540,7 @@ export function PictureImportDialog({
                                       step={5}
                                       value={settings.minBrightness}
                                       onChange={(e) =>
-                                        setSettings((s) => ({
+                                        updateSettings((s) => ({
                                           ...s,
                                           minBrightness: parseInt(e.target.value, 10),
                                         }))
@@ -547,7 +557,7 @@ export function PictureImportDialog({
                                       step={5}
                                       value={settings.maxBrightness}
                                       onChange={(e) =>
-                                        setSettings((s) => ({
+                                        updateSettings((s) => ({
                                           ...s,
                                           maxBrightness: parseInt(e.target.value, 10),
                                         }))

@@ -74,6 +74,34 @@ export const DEFAULT_SETTINGS: AnalysisSettings = {
   sensitivityThreshold: 0.008,
 };
 
+const SETTINGS_STORAGE_KEY = "dungeon-cracker-analysis-settings";
+
+/** Save analysis settings to localStorage. */
+export function saveSettings(settings: AnalysisSettings): void {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // localStorage unavailable (SSR, private browsing quota, etc.)
+  }
+}
+
+/** Load analysis settings from localStorage, falling back to defaults. */
+export function loadSettings(): AnalysisSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        minBrightness: typeof parsed.minBrightness === "number" ? parsed.minBrightness : DEFAULT_SETTINGS.minBrightness,
+        maxBrightness: typeof parsed.maxBrightness === "number" ? parsed.maxBrightness : DEFAULT_SETTINGS.maxBrightness,
+        sensitivityThreshold: typeof parsed.sensitivityThreshold === "number" ? parsed.sensitivityThreshold : DEFAULT_SETTINGS.sensitivityThreshold,
+      };
+    }
+  } catch {
+    // localStorage unavailable or corrupt data
+  }
+  return { ...DEFAULT_SETTINGS };
+}
 // ── Floor size inference from aspect ratio ────────────────────────────
 
 /**

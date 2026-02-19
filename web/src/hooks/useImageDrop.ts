@@ -5,7 +5,8 @@ import {
   loadImageData,
   analyseImage,
   analysisToFloor,
-  DEFAULT_SETTINGS,
+  inferFloorSizeIndex,
+  loadSettings,
 } from "@/lib/image-analysis";
 import { Tile, FLOOR_SIZES } from "@/lib/types";
 
@@ -21,7 +22,9 @@ interface UseImageDropOptions {
 /**
  * Hook that listens for paste and drag-drop events on the whole page.
  * When an image is pasted/dropped while the dialog is NOT open, it runs
- * the analysis with the current floor size and applies the result directly.
+ * the analysis with the current floor size (or infers from aspect ratio)
+ * using the last-configured analysis settings from localStorage, and
+ * applies the result directly.
  */
 export function useImageDrop({
   floorSizeIndex,
@@ -42,13 +45,22 @@ export function useImageDrop({
 
     const url = URL.createObjectURL(blob);
     try {
-      const { imageData } = await loadImageData(url);
-      const fs = FLOOR_SIZES[sizeRef.current];
+      const { imageData, width, height } = await loadImageData(url);
+
+      // Auto-detect floor size from aspect ratio; keep current if square
+      const inferred = inferFloorSizeIndex(width, height);
+      const effectiveSizeIndex = inferred ?? sizeRef.current;
+
+      const fs = FLOOR_SIZES[effectiveSizeIndex];
       const cols = fs.xMax - fs.xMin;
       const rows = fs.zMax - fs.zMin;
-      const analysis = analyseImage(imageData, cols, rows, DEFAULT_SETTINGS);
+
+      // Use the last-configured settings from the dialog (persisted in localStorage)
+      const settings = loadSettings();
+
+      const analysis = analyseImage(imageData, cols, rows, settings);
       const floor = analysisToFloor(analysis, cols, rows, fs.xMin, fs.zMin);
-      applyRef.current(floor, sizeRef.current);
+      applyRef.current(floor, effectiveSizeIndex);
     } finally {
       URL.revokeObjectURL(url);
     }
