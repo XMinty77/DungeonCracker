@@ -1,0 +1,237 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+@import "tailwindcss";
+
+/* ── Minecraft Ten v2 — title/heading font ── */
+@font-face {
+  font-family: "MinecraftTenv2";
+  src: url("/fonts/Minecraft-Tenv2.eot");
+  src: url("/fonts/Minecraft-Tenv2.woff2") format("woff2"),
+    url("/fonts/Minecraft-Tenv2.woff") format("woff"),
+    url("/fonts/Minecraft-Tenv2.ttf") format("truetype");
+  font-style: normal;
+  font-weight: normal;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Tailwind v4 Theme Tokens ── */
+@theme {
+  --font-minecraft: "MinecraftTenv2", monospace;
+  --font-body: "Noto Sans", system-ui, sans-serif;
+
+  --color-mc-bg: #171615;
+  --color-mc-bg-dark: #111111;
+  --color-mc-bg-darker: #000000;
+  --color-mc-titlebar: #262423;
+  --color-mc-tab-active: #3d3938;
+  --color-mc-tab-inactive: #262423;
+  --color-mc-border: #51504f;
+  --color-mc-text-highlight: #ffffff;
+  --color-mc-text: #d0c5c0;
+  --color-mc-text-dim: #8a817c;
+
+  --color-mc-green: #3c8527;
+  --color-mc-green-light: #52a535;
+  --color-mc-green-dark: #2a641c;
+  --color-mc-green-hover: #367723;
+  --color-mc-green-text: #6cc349;
+
+  --color-mc-yellow: #ffc42b;
+  --color-mc-yellow-light: #ffd953;
+  --color-mc-yellow-dark: #db9f21;
+  --color-mc-yellow-text: #ffc42b;
+
+  --color-mc-red: #c43c3c;
+  --color-mc-red-text: #ff5555;
+}
+
+/* ── Base ── */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-mc-bg-dark);
+  color: var(--color-mc-text);
+  min-height: 100dvh;
+}
+
+/* ── Pixelated tile images ── */
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ── Remove number input spinners ── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-mc-bg-darker);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-mc-border);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-mc-green);
+}
+
+/* ── Minecraft-style button ─────────────────────── */
+.mc-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-mc-text-highlight);
+  background-color: var(--color-mc-green);
+  border: 2px solid var(--color-mc-green);
+  border-top-color: var(--color-mc-green-light);
+  border-bottom-color: var(--color-mc-green-dark);
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, filter 0.1s, transform 0.1s;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+}
+.mc-btn:hover:not(:disabled) {
+  background-color: var(--color-mc-green-hover);
+  filter: none;
+}
+.mc-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  filter: brightness(0.95);
+}
+.mc-btn:disabled {
+  background-color: var(--color-mc-tab-inactive);
+  border-color: var(--color-mc-border);
+  color: var(--color-mc-text-dim);
+  cursor: not-allowed;
+  text-shadow: none;
+}
+
+.mc-btn-yellow {
+  background-color: var(--color-mc-yellow);
+  border-color: var(--color-mc-yellow);
+  border-top-color: var(--color-mc-yellow-light);
+  border-bottom-color: var(--color-mc-yellow-dark);
+  color: var(--color-mc-bg-darker);
+  text-shadow: none;
+}
+.mc-btn-yellow:hover:not(:disabled) {
+  background-color: var(--color-mc-yellow-dark);
+}
+
+.mc-btn-outline {
+  background-color: transparent;
+  border: 2px solid var(--color-mc-border);
+  color: var(--color-mc-text);
+  text-shadow: none;
+}
+.mc-btn-outline:hover:not(:disabled) {
+  background-color: var(--color-mc-green-hover);
+  border-color: var(--color-mc-green);
+  color: var(--color-mc-text-highlight);
+}
+
+/* ── Minecraft-style panel ─────────────────────── */
+.mc-panel {
+  background-color: var(--color-mc-bg);
+  border: 2px solid var(--color-mc-border);
+  position: relative;
+  transition: border-color 0.3s ease;
+}
+
+/* ── Minecraft-style input ─────────────────────── */
+.mc-input {
+  width: 100%;
+  background-color: var(--color-mc-bg-darker);
+  border: 2px solid var(--color-mc-border);
+  padding: 0.5rem 0.75rem;
+  color: var(--color-mc-text-highlight);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.mc-input:focus {
+  border-color: var(--color-mc-green);
+}
+.mc-input::placeholder {
+  color: var(--color-mc-text-dim);
+}
+
+/* ── Minecraft-style select ─────────────────────── */
+.mc-select {
+  width: 100%;
+  background-color: var(--color-mc-bg-darker);
+  border: 2px solid var(--color-mc-border);
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  color: var(--color-mc-text-highlight);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23D0C5C0' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  transition: border-color 0.2s ease;
+}
+.mc-select:focus {
+  border-color: var(--color-mc-green);
+}
+
+/* ── Progress bar ─────────────────────── */
+@keyframes progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.progress-bar-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-mc-green-dark) 0%,
+    var(--color-mc-green-light) 50%,
+    var(--color-mc-green-dark) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s linear infinite;
+}
+
+/* ── Particle float ─────────────────────── */
+@keyframes particle-drift {
+  0% {
+    transform: translateY(100vh) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(90vh) scale(1);
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-10vh) scale(0.5);
+    opacity: 0;
+  }
+}
