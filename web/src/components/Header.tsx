@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { Github } from "lucide-react";
+import { BASE_PATH } from "@/lib/types";
 
 export function Header() {
   return (
@@ -19,7 +20,7 @@ export function Header() {
           transition={{ type: "spring", stiffness: 400, damping: 15 }}
         >
           <Image
-            src="/icon.png"
+            src={`${BASE_PATH}/icon.png`}
             alt="Dungeon Cracker"
             width={32}
             height={32}

@@ -1,4 +1,8 @@
 // ── Tile types matching Rust/WASM: 0=mossy, 1=cobble, 2=air, 3=unknown, 4=unknown_solid ──
+
+/** Next.js basePath, used to prefix public asset URLs in static export. */
+export const BASE_PATH = process.env.__NEXT_ROUTER_BASEPATH || "DungeonCracker";
+
 export enum Tile {
   Mossy = 0,
   Cobble = 1,
@@ -18,11 +22,11 @@ export const TILE_NAMES: Record<Tile, string> = {
 };
 
 export const TILE_IMAGES: Record<Tile, string> = {
-  [Tile.Mossy]: "/tiles/mossy.png",
-  [Tile.Cobble]: "/tiles/cobble.png",
-  [Tile.Air]: "/tiles/air.png",
-  [Tile.Unknown]: "/tiles/unknown.png",
-  [Tile.UnknownSolid]: "/tiles/unknown_solid.png",
+  [Tile.Mossy]: `${BASE_PATH}/tiles/mossy.png`,
+  [Tile.Cobble]: `${BASE_PATH}/tiles/cobble.png`,
+  [Tile.Air]: `${BASE_PATH}/tiles/air.png`,
+  [Tile.Unknown]: `${BASE_PATH}/tiles/unknown.png`,
+  [Tile.UnknownSolid]: `${BASE_PATH}/tiles/unknown_solid.png`,
 };
 
 // ── Floor sizes ──

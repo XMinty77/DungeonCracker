@@ -6,6 +6,7 @@ import type {
   CrackStatus,
   PrepareResult,
 } from "@/lib/types";
+import { BASE_PATH } from "@/lib/types";
 
 const NUM_WORKERS =
   typeof navigator !== "undefined"
@@ -65,10 +66,8 @@ export function useCracker() {
 
         // Build an absolute URL for the WASM file — workers can't
         // resolve root-relative paths like "/wasm/..." on their own.
-        // Use Next.js basePath so this works on GitHub Pages subpaths.
-        const basePath = process.env.__NEXT_ROUTER_BASEPATH || "DungeonCracker";
         const wasmUrl = new URL(
-          `${basePath}/wasm/dungeon_cracker_bg.wasm`,
+          `${BASE_PATH}/wasm/dungeon_cracker_bg.wasm`,
           window.location.origin
         ).href;
 
