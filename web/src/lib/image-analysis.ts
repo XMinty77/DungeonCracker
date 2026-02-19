@@ -205,11 +205,11 @@ export function analyseImage(
   const cellW = imageData.width / cols;
   const cellH = imageData.height / rows;
 
-  // Shrink the sampling region to the inner 70% to avoid grid lines / borders
-  const insetX = cellW * 0.15;
-  const insetY = cellH * 0.15;
-  const sampleW = cellW * 0.7;
-  const sampleH = cellH * 0.7;
+  // Shrink the sampling region to the inner 90% to avoid alignment issues
+  const insetX = cellW * 0.05;
+  const insetY = cellH * 0.05;
+  const sampleW = cellW * 0.9;
+  const sampleH = cellH * 0.9;
 
   const result: CellAnalysis[][] = [];
 
