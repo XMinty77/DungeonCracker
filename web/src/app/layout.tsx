@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     "Minecraft dungeon floor seed cracker — crack dungeon seeds from floor patterns.",
   icons: {
-    icon: "/icon.png",
+    icon: "/DungeonCracker/icon.png",
   },
 };
 

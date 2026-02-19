@@ -4,10 +4,10 @@
 /* ── Minecraft Ten v2 — title/heading font ── */
 @font-face {
   font-family: "MinecraftTenv2";
-  src: url("/fonts/Minecraft-Tenv2.eot");
-  src: url("/fonts/Minecraft-Tenv2.woff2") format("woff2"),
-    url("/fonts/Minecraft-Tenv2.woff") format("woff"),
-    url("/fonts/Minecraft-Tenv2.ttf") format("truetype");
+  src: url("/DungeonCracker/fonts/Minecraft-Tenv2.eot");
+  src: url("/DungeonCracker/fonts/Minecraft-Tenv2.woff2") format("woff2"),
+    url("/DungeonCracker/fonts/Minecraft-Tenv2.woff") format("woff"),
+    url("/DungeonCracker/fonts/Minecraft-Tenv2.ttf") format("truetype");
   font-style: normal;
   font-weight: normal;
   text-rendering: optimizeLegibility;
