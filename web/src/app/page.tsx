@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Zap, Cpu, AlertTriangle } from "lucide-react";
+import { Loader2, Zap, Cpu, AlertTriangle, XCircle } from "lucide-react";
 import { Header } from "@/components/Header";
 import { FloorGrid } from "@/components/FloorGrid";
 import { OptionsForm } from "@/components/OptionsForm";
@@ -197,10 +197,18 @@ export default function Home() {
   const canCrack =
     isValid &&
     cracker.workersReady &&
-    cracker.status !== "cracking" &&
     cracker.status !== "preparing";
 
+  const isCracking =
+    cracker.status === "cracking" || cracker.status === "preparing";
+
   const handleCrack = useCallback(() => {
+    if (cracker.status === "cracking" || cracker.status === "preparing") {
+      // Stop current cracking run
+      cracker.stop();
+      return;
+    }
+
     if (!canCrack) return;
 
     const fs = FLOOR_SIZES[floorSizeIndex];
@@ -233,9 +241,6 @@ export default function Home() {
     biome,
     cracker,
   ]);
-
-  const isCracking =
-    cracker.status === "cracking" || cracker.status === "preparing";
 
   return (
     <div className="min-h-dvh flex flex-col bg-mc-bg-dark">
@@ -281,26 +286,16 @@ export default function Home() {
             >
               <button
                 onClick={handleCrack}
-                disabled={!canCrack}
+                disabled={!canCrack && !isCracking}
                 className={`mc-btn w-full !py-3 !text-sm relative overflow-hidden ${
-                  isCracking ? "mc-btn-yellow" : ""
+                  isCracking ? "mc-btn-red" : ""
                 }`}
               >
-                {/* Progress bar as button background */}
-                {(isCracking || cracker.status === "done") && (
-                  <motion.div
-                    className="absolute inset-0 bg-mc-green"
-                    style={{ opacity: 0.35 }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${cracker.progress}%` }}
-                    transition={{ duration: 0.4, ease: "easeOut" }}
-                  />
-                )}
                 <span className="relative z-10 flex items-center justify-center gap-2">
                   {isCracking ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Cracking… {cracker.progress}%
+                      <XCircle className="w-4 h-4" />
+                      Stop
                     </>
                   ) : cracker.status === "loading" ? (
                     <>
@@ -315,6 +310,26 @@ export default function Home() {
                   )}
                 </span>
               </button>
+
+              {/* Progress bar below button */}
+              {(isCracking || cracker.status === "done") && (
+                <div className="mt-2 space-y-1">
+                  <div className="w-full h-1 bg-mc-bg-darker border border-mc-border overflow-hidden">
+                    <motion.div
+                      className="h-full bg-mc-green progress-bar-shimmer"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${cracker.progress}%` }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    />
+                  </div>
+                  {isCracking && (
+                    <div className="flex items-center gap-2 text-xs text-mc-text-dim">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Cracking… {cracker.progress}%</span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Error message (inline) */}
               {cracker.status === "error" && cracker.error && (

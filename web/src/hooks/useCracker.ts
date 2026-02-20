@@ -44,6 +44,8 @@ export function useCracker() {
 
   const workersRef = useRef<Worker[]>([]);
   const workersReadyCount = useRef(0);
+  const cancelRef = useRef<() => void>(() => {});
+  const wasmUrlRef = useRef<string>("");
   const wasmGlueRef = useRef<{
     prepare_crack_wasm: (
       x: number,
@@ -55,6 +57,54 @@ export function useCracker() {
       grid: Uint8Array
     ) => string;
   } | null>(null);
+
+  /** Spawn (or re-spawn) the worker pool. Assumes wasmUrlRef is set. */
+  const spawnWorkers = useCallback(async () => {
+    const wasmUrl = wasmUrlRef.current;
+    if (!wasmUrl) return;
+
+    // Terminate any leftover workers
+    workersRef.current.forEach((w) => w.terminate());
+    workersRef.current = [];
+    workersReadyCount.current = 0;
+
+    console.log(`[DungeonCracker] Spawning ${NUM_WORKERS} workers…`);
+
+    const workers: Worker[] = [];
+    const workerPromises: Promise<void>[] = [];
+
+    for (let i = 0; i < NUM_WORKERS; i++) {
+      const w = new Worker(
+        new URL("../workers/cracker.worker.ts", import.meta.url)
+      );
+      workers.push(w);
+
+      workerPromises.push(
+        new Promise<void>((resolve, reject) => {
+          w.onmessage = (e) => {
+            if (e.data.type === "init_done") {
+              workersReadyCount.current++;
+              resolve();
+            } else if (e.data.type === "error") {
+              reject(new Error(e.data.error));
+            }
+          };
+        })
+      );
+
+      w.postMessage({ type: "init", wasmUrl });
+    }
+
+    await Promise.all(workerPromises);
+    workersRef.current = workers;
+
+    console.log(`[DungeonCracker] ${NUM_WORKERS} workers ready.`);
+    setState((s) => ({
+      ...s,
+      status: "idle",
+      workersReady: true,
+    }));
+  }, []);
 
   // Initialize WASM on main thread (for prepare) + spawn workers
   useEffect(() => {
@@ -70,54 +120,18 @@ export function useCracker() {
           `${BASE_PATH}/wasm/dungeon_cracker_bg.wasm`,
           window.location.origin
         ).href;
+        wasmUrlRef.current = wasmUrl;
 
         // Load the self-contained WASM glue on the main thread
         const glue = await import("@/lib/wasm-glue.js");
         await glue.initWasm(wasmUrl);
         wasmGlueRef.current = glue;
 
-        // Spawn workers
-        const workers: Worker[] = [];
-        workersReadyCount.current = 0;
-
-        const workerPromises: Promise<void>[] = [];
-
-        for (let i = 0; i < NUM_WORKERS; i++) {
-          const w = new Worker(
-            new URL("../workers/cracker.worker.ts", import.meta.url)
-          );
-          workers.push(w);
-
-          workerPromises.push(
-            new Promise<void>((resolve, reject) => {
-              w.onmessage = (e) => {
-                if (e.data.type === "init_done") {
-                  workersReadyCount.current++;
-                  resolve();
-                } else if (e.data.type === "error") {
-                  reject(new Error(e.data.error));
-                }
-              };
-            })
-          );
-
-          w.postMessage({
-            type: "init",
-            wasmUrl,
-          });
-        }
-
-        await Promise.all(workerPromises);
-
-        workersRef.current = workers;
+        // Spawn initial worker pool
+        await spawnWorkers();
 
         if (!cancelled) {
           console.log(`[DungeonCracker] WASM loaded, ${NUM_WORKERS} workers ready.`);
-          setState((s) => ({
-            ...s,
-            status: "idle",
-            workersReady: true,
-          }));
         }
       } catch (err) {
         console.error("[DungeonCracker] Failed to initialize:", err);
@@ -137,10 +151,13 @@ export function useCracker() {
       cancelled = true;
       workersRef.current.forEach((w) => w.terminate());
     };
-  }, []);
+  }, [spawnWorkers]);
 
   // Crack function
   const crack = useCallback(async (params: CrackParams) => {
+    // Clear any previous cancellation handler
+    cancelRef.current = () => {};
+
     const glue = wasmGlueRef.current;
     if (!glue) return;
 
@@ -199,6 +216,30 @@ export function useCracker() {
 
       let completedChunks = 0;
       const totalChunks = numWorkers;
+      let cancelled = false;
+
+      cancelRef.current = () => {
+        if (cancelled) return;
+        cancelled = true;
+        console.log("[DungeonCracker] Cancelling crack — terminating workers…");
+        workers.forEach((w) => w.terminate());
+        workersRef.current = [];
+        setState((s) => ({
+          ...s,
+          status: "loading",
+          progress: 0,
+          workersReady: false,
+        }));
+        // Respawn workers so the next crack works
+        spawnWorkers().catch((err) => {
+          console.error("[DungeonCracker] Failed to respawn workers:", err);
+          setState((s) => ({
+            ...s,
+            status: "error",
+            error: `Failed to respawn workers: ${err}`,
+          }));
+        });
+      };
 
       await new Promise<void>((resolve, reject) => {
         let finished = 0;
@@ -237,7 +278,7 @@ export function useCracker() {
                 progress: pct,
               }));
               finished++;
-              if (finished === totalChunks) resolve();
+              if (finished === totalChunks && !cancelled) resolve();
             } else if (msg.type === "error") {
               reject(new Error(msg.error));
             }
@@ -287,9 +328,11 @@ export function useCracker() {
         error: `Crack failed: ${err}`,
       }));
     }
-  }, []);
+  }, [spawnWorkers]);
 
   const reset = useCallback(() => {
+    // Reset also clears any pending cancellation handler
+    cancelRef.current = () => {};
     setState((s) => ({
       ...s,
       status: s.workersReady ? "idle" : "loading",
@@ -300,5 +343,11 @@ export function useCracker() {
     }));
   }, []);
 
-  return { ...state, crack, reset };
+  const stop = useCallback(() => {
+    if (state.status === "cracking" || state.status === "preparing") {
+      cancelRef.current();
+    }
+  }, [state.status]);
+
+  return { ...state, crack, reset, stop };
 }

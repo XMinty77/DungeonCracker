@@ -137,6 +137,18 @@ input[type="number"] {
   background-color: var(--color-mc-yellow-dark);
 }
 
+.mc-btn-red {
+  background-color: var(--color-mc-red);
+  border-color: var(--color-mc-red);
+  border-top-color: #e76b6b;
+  border-bottom-color: #8f2424;
+  color: var(--color-mc-text-highlight);
+  text-shadow: none;
+}
+.mc-btn-red:hover:not(:disabled) {
+  background-color: #b22c2c;
+}
+
 .mc-btn-outline {
   background-color: transparent;
   border: 2px solid var(--color-mc-border);
