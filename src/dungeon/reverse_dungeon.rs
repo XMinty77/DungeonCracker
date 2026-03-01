@@ -101,9 +101,17 @@ pub fn crack_dungeon(
 
     eprintln!("[info] Generated {} floor interpretation(s)", possibilities.len());
 
-    let offset_x = spawner_x & 15;
+    // For pre-1.13, chunk population is offset by +8 blocks,
+    // so the spawner coordinates need to be adjusted by -8.
+    let (adj_x, adj_z) = if version.is_older_than(MCVersion::V1_13) {
+        (spawner_x - 8, spawner_z - 8)
+    } else {
+        (spawner_x, spawner_z)
+    };
+
+    let offset_x = adj_x & 15;
     let y = spawner_y;
-    let offset_z = spawner_z & 15;
+    let offset_z = adj_z & 15;
     eprintln!("[info] Offsets: x={}, y={}, z={}", offset_x, y, offset_z);
 
     let mut struct_seeds_set = HashSet::new();
@@ -203,25 +211,10 @@ pub fn crack_dungeon(
             }
             dungeon_seeds_set.insert(*seed);
 
-            for &salt in &salts {
-                rand.jrand.set_seed(*seed, false);
-
-                for _ in 0..8 {
-                    let pop_seed = (rand.jrand.get_seed() ^ LCG::JAVA.multiplier) - salt;
-                    let chunk_x = (spawner_x >> 4) << 4;
-                    let chunk_z = (spawner_z >> 4) << 4;
-
-                    let partial_struct_seeds =
-                        population_reverser::reverse_population_seed(pop_seed, chunk_x, chunk_z, MCVersion::V1_14);
-
-                    for ss in partial_struct_seeds {
-                        let masked = ss & mth::MASK_48;
-                        struct_seeds_set.insert(masked);
-                    }
-
-                    rand.jrand.advance(-5);
-                }
-            }
+            dungeon_seed_to_structure_seeds(
+                *seed, spawner_x, spawner_z, version, &salts,
+                &mut struct_seeds_set, &mut rand,
+            );
         }
     }
 
@@ -315,25 +308,10 @@ pub fn crack_dungeon_partial(
         for seed in &dungeon_seeds_xored {
             dungeon_seeds_set.insert(*seed);
 
-            for &salt in &salts {
-                rand.jrand.set_seed(*seed, false);
-
-                for _ in 0..8 {
-                    let pop_seed = (rand.jrand.get_seed() ^ LCG::JAVA.multiplier) - salt;
-                    let chunk_x = (spawner_x >> 4) << 4;
-                    let chunk_z = (spawner_z >> 4) << 4;
-
-                    let partial_struct_seeds =
-                        population_reverser::reverse_population_seed(pop_seed, chunk_x, chunk_z, MCVersion::V1_14);
-
-                    for ss in partial_struct_seeds {
-                        let masked = ss & mth::MASK_48;
-                        struct_seeds_set.insert(masked);
-                    }
-
-                    rand.jrand.advance(-5);
-                }
-            }
+            dungeon_seed_to_structure_seeds(
+                *seed, spawner_x, spawner_z, version, &salts,
+                &mut struct_seeds_set, &mut rand,
+            );
         }
     }
 
@@ -353,6 +331,78 @@ pub fn crack_dungeon_partial(
     })
 }
 
+/// Convert a dungeon seed (internal RNG state) to structure seeds (48-bit world seeds).
+/// Mirrors DecoratorSeedProcessor.decoratorSeedsToStructureSeeds from Java
+///
+/// For 1.13+:
+///   The dungeon RNG is seeded with the decorator seed = popSeed + salt.
+///   We subtract the salt to get the population seed, then reverse it
+///   using the 1.13+ population reverser with block-aligned coordinates.
+///   Up to 8 failed dungeon attempts (each consuming 5 RNG calls) are tried.
+///
+/// For pre-1.13:
+///   There is no decorator seed. All decorators run sequentially from the
+///   population seed RNG. The dungeon seed is at some unknown offset from
+///   the population seed. We try up to 2000 offsets (going back by 1 call
+///   each time), and for each candidate population seed, reverse it using
+///   the pre-1.13 reverser with chunk coordinates.
+fn dungeon_seed_to_structure_seeds(
+    dungeon_seed: i64,
+    spawner_x: i32,
+    spawner_z: i32,
+    version: MCVersion,
+    salts: &[i64],
+    struct_seeds_set: &mut HashSet<i64>,
+    rand: &mut ChunkRand,
+) {
+    if version.is_older_than(MCVersion::V1_13) {
+        let adj_x = spawner_x - 8;
+        let adj_z = spawner_z - 8;
+        let chunk_x = adj_x >> 4;
+        let chunk_z = adj_z >> 4;
+
+        let lcg_inv = LCG::JAVA.combine(-1);
+        let mut state = dungeon_seed;
+
+        for _ in 0..2000 {
+            let pop_seed_candidate = (state ^ LCG::JAVA.multiplier) & mth::MASK_48;
+
+            let partial_struct_seeds = population_reverser::reverse_population_seed(
+                pop_seed_candidate, chunk_x, chunk_z, MCVersion::V1_12,
+            );
+
+            for ss in partial_struct_seeds {
+                let masked = ss & mth::MASK_48;
+                struct_seeds_set.insert(masked);
+            }
+
+            // Go back one RNG call
+            state = lcg_inv.next_seed(state);
+        }
+    } else {
+        let chunk_x = (spawner_x >> 4) << 4;
+        let chunk_z = (spawner_z >> 4) << 4;
+
+        for &salt in salts {
+            rand.jrand.set_seed(dungeon_seed, false);
+
+            for _ in 0..8 {
+                let pop_seed = (rand.jrand.get_seed() ^ LCG::JAVA.multiplier) - salt;
+
+                let partial_struct_seeds =
+                    population_reverser::reverse_population_seed(pop_seed, chunk_x, chunk_z, MCVersion::V1_14);
+
+                for ss in partial_struct_seeds {
+                    let masked = ss & mth::MASK_48;
+                    struct_seeds_set.insert(masked);
+                }
+
+                rand.jrand.advance(-5);
+            }
+        }
+    }
+}
+
 /// Build a JavaRandomReverser from a program (one possibility).
 /// Returns (reverser, info_bits).
 fn build_reverser(
@@ -362,9 +412,18 @@ fn build_reverser(
     version: MCVersion,
     program: &[ReverserInstruction],
 ) -> Result<(JavaRandomReverser, f32), String> {
-    let offset_x = spawner_x & 15;
+    // For pre-1.13, chunk population is offset by +8 blocks,
+    // so the spawner coordinates need to be adjusted by -8 to get the
+    // correct local offsets within the population area.
+    let (adj_x, adj_z) = if version.is_older_than(MCVersion::V1_13) {
+        (spawner_x - 8, spawner_z - 8)
+    } else {
+        (spawner_x, spawner_z)
+    };
+
+    let offset_x = adj_x & 15;
     let y = spawner_y;
-    let offset_z = spawner_z & 15;
+    let offset_z = adj_z & 15;
 
     let mut filtered_skips: Vec<FilteredSkip> = Vec::new();
     let mut call_sequence: Vec<CallEntry> = Vec::new();
