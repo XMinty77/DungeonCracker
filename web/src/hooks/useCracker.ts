@@ -153,6 +153,27 @@ export function useCracker() {
     };
   }, [spawnWorkers]);
 
+  /**
+   * Prepare-only step: run the lightweight WASM prepare on the main thread
+   * and return the PrepareResult.  Does NOT start any workers.
+   * Returns null if WASM glue isn't loaded yet.
+   */
+  const prepare = useCallback((params: CrackParams): PrepareResult | null => {
+    const glue = wasmGlueRef.current;
+    if (!glue) return null;
+
+    const prepareJson = glue.prepare_crack_wasm(
+      params.spawnerX,
+      params.spawnerY,
+      params.spawnerZ,
+      params.version,
+      params.biome,
+      params.floorSize,
+      params.floorGrid
+    );
+    return JSON.parse(prepareJson) as PrepareResult;
+  }, []);
+
   // Crack function
   const crack = useCallback(async (params: CrackParams) => {
     // Clear any previous cancellation handler
@@ -349,5 +370,5 @@ export function useCracker() {
     }
   }, [state.status]);
 
-  return { ...state, crack, reset, stop };
+  return { ...state, prepare, crack, reset, stop };
 }

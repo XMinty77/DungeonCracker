@@ -45,6 +45,7 @@ export function Header() {
             href="https://github.com/XMinty77/DungeonCracker"
             target="_blank"
             rel="noopener noreferrer"
+            tabIndex={10}
             className="mc-btn mc-btn-outline !py-1.5 !px-3 !text-xs !gap-1.5"
           >
             <Github className="w-3.5 h-3.5" />

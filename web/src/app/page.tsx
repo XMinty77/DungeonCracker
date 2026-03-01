@@ -17,19 +17,23 @@ import { DungeonPanel, createEmptyFloor } from "@/components/DungeonPanel";
 import { MultiDungeonResults } from "@/components/MultiDungeonResults";
 import { ParticleBackground } from "@/components/ParticleBackground";
 import { PictureImportDialog } from "@/components/PictureImportDialog";
+import { WarningDialog, type WarningDialogAction } from "@/components/WarningDialog";
 import { useCracker } from "@/hooks/useCracker";
 import { useImageDrop } from "@/hooks/useImageDrop";
 import {
   Tile,
   FLOOR_SIZES,
+  MC_VERSIONS,
   type CrackResult,
   type DungeonEntry,
+  type MCVersion,
 } from "@/lib/types";
 import {
   serializeDungeons,
   deserializeDungeons,
 } from "@/lib/hash-serialization";
 import { hasAnimated, markAnimated } from "@/lib/initial-animation";
+import { getCachedResult, setCachedResult } from "@/lib/crack-cache";
 
 let nextDungeonId = 2; // starts at 2 because the initial dungeon is always id "1"
 function makeDungeon(label?: string): DungeonEntry {
@@ -69,6 +73,13 @@ function isValid(d: DungeonEntry) {
     !isNaN(parseInt(d.spawnerY)) &&
     !isNaN(parseInt(d.spawnerZ))
   );
+}
+
+/** True when the dungeon's version is strictly older than `threshold` (e.g. "1.13"). */
+function isOlderThan(d: DungeonEntry, threshold: MCVersion): boolean {
+  const idx = MC_VERSIONS.indexOf(d.version);
+  const threshIdx = MC_VERSIONS.indexOf(threshold);
+  return idx >= 0 && threshIdx >= 0 && idx < threshIdx;
 }
 
 /** Special sentinel id for the multi-dungeons tab */
@@ -172,6 +183,20 @@ export default function Home() {
     [activeTabId]
   );
 
+  // ── Alt+Z shortcut: close current dungeon tab ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === "w") {
+        e.preventDefault();
+        if (activeTabId !== MULTI_TAB_ID && dungeons.length > 1) {
+          removeDungeon(activeTabId);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTabId, dungeons.length, removeDungeon]);
+
   const updateDungeon = useCallback((updated: DungeonEntry) => {
     setDungeons((prev) =>
       prev.map((d) => (d.id === updated.id ? updated : d))
@@ -197,28 +222,48 @@ export default function Home() {
   const isCracking =
     cracker.status === "cracking" || cracker.status === "preparing";
 
+  // ── Warning dialog state ──
+  const [warningDialog, setWarningDialog] = useState<{
+    title: string;
+    body: string[];
+    detail?: string;
+    actions: WarningDialogAction[];
+  } | null>(null);
+
+  const closeWarning = useCallback(() => setWarningDialog(null), []);
+
+  /**
+   * Empirical threshold for abnormally large search trees
+   * TODO: Readjust after gathering varied test data
+   */
+  const BRANCH_WARNING_THRESHOLD = 25;
+
   // ── Start cracking a specific dungeon ──
+  /** Build CrackParams from a DungeonEntry */
+  const buildCrackParams = useCallback((dungeon: DungeonEntry) => {
+    const fs = FLOOR_SIZES[dungeon.floorSizeIndex];
+    const flatGrid = new Uint8Array(81);
+    for (let z = 0; z < 9; z++) {
+      for (let x = 0; x < 9; x++) {
+        flatGrid[z * 9 + x] = dungeon.floorData[z][x];
+      }
+    }
+    return {
+      spawnerX: parseInt(dungeon.spawnerX),
+      spawnerY: parseInt(dungeon.spawnerY),
+      spawnerZ: parseInt(dungeon.spawnerZ),
+      version: dungeon.version,
+      biome: dungeon.biome,
+      floorSize: fs.key,
+      floorGrid: flatGrid,
+    };
+  }, []);
+
   const startCrackForDungeon = useCallback(
     (dungeon: DungeonEntry) => {
-      const fs = FLOOR_SIZES[dungeon.floorSizeIndex];
-      const flatGrid = new Uint8Array(81);
-      for (let z = 0; z < 9; z++) {
-        for (let x = 0; x < 9; x++) {
-          flatGrid[z * 9 + x] = dungeon.floorData[z][x];
-        }
-      }
-
-      cracker.crack({
-        spawnerX: parseInt(dungeon.spawnerX),
-        spawnerY: parseInt(dungeon.spawnerY),
-        spawnerZ: parseInt(dungeon.spawnerZ),
-        version: dungeon.version,
-        biome: dungeon.biome,
-        floorSize: fs.key,
-        floorGrid: flatGrid,
-      });
+      cracker.crack(buildCrackParams(dungeon));
     },
-    [cracker]
+    [cracker, buildCrackParams]
   );
 
   // ── Crack only the active dungeon ──
@@ -233,7 +278,58 @@ export default function Home() {
 
     if (!activeDungeon || !isValid(activeDungeon) || !cracker.workersReady) return;
 
-    // Clear this dungeon's old result
+    // ── Check localStorage cache first ──
+    const cached = getCachedResult(activeDungeon);
+    if (cached) {
+      setDungeonResults((prev) => ({
+        ...prev,
+        [activeDungeon.id]: cached,
+      }));
+      return;
+    }
+
+    // ── Run prepare to check search tree size ──
+    const params = buildCrackParams(activeDungeon);
+    const prepareResult = cracker.prepare(params);
+
+    if (prepareResult && !prepareResult.error && prepareResult.total_branches >= BRANCH_WARNING_THRESHOLD) {
+      // Show warning dialog — user must confirm to proceed
+      setWarningDialog({
+        title: "Suspicious Floor Pattern",
+        body: [
+          `This dungeon pattern produces ${prepareResult.total_branches} search branches (valid dungeons typically have 3–7).`,
+          "This usually means the floor pattern is too uniform or doesn't contain enough variation to narrow down seeds. The crack may take a very long time or produce unreliable results.",
+        ],
+        detail: `Technical details: ${prepareResult.total_branches} branches, ${prepareResult.dimensions ?? "?"} dimensions, ${prepareResult.info_bits?.toFixed(1) ?? "?"} info bits. Check that the floor tiles match exactly what you see in-game.`,
+        actions: [
+          {
+            label: "Cancel",
+            className: "mc-btn-outline",
+            onClick: () => setWarningDialog(null),
+          },
+          {
+            label: "Crack Anyway",
+            className: "mc-btn-yellow",
+            onClick: () => {
+              setWarningDialog(null);
+              // Clear old result and start crack
+              setDungeonResults((prev) => {
+                const next = { ...prev };
+                delete next[activeDungeon.id];
+                return next;
+              });
+              setCurrentCrackingId(activeDungeon.id);
+              setMultiCrackActive(false);
+              crackQueueRef.current = [];
+              cracker.crack(params);
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    // ── Normal flow — start crack ──
     setDungeonResults((prev) => {
       const next = { ...prev };
       delete next[activeDungeon.id];
@@ -244,8 +340,8 @@ export default function Home() {
     setMultiCrackActive(false);
     crackQueueRef.current = [];
 
-    startCrackForDungeon(activeDungeon);
-  }, [isCracking, multiCrackActive, activeDungeon, cracker, startCrackForDungeon]);
+    cracker.crack(params);
+  }, [isCracking, multiCrackActive, activeDungeon, cracker, buildCrackParams]);
 
   // ── Save single crack result when done (non-multi mode) ──
   useEffect(() => {
@@ -259,6 +355,9 @@ export default function Home() {
         ...prev,
         [currentCrackingId]: cracker.result!,
       }));
+      // Cache result for instant reload
+      const dungeon = dungeonsRef.current.find((d) => d.id === currentCrackingId);
+      if (dungeon) setCachedResult(dungeon, cracker.result!);
     }
   }, [multiCrackActive, cracker.status, cracker.result, currentCrackingId]);
 
@@ -279,6 +378,15 @@ export default function Home() {
       return;
     }
 
+    // Check cache before starting the worker
+    const cached = getCachedResult(nextDungeon);
+    if (cached) {
+      setDungeonResults((prev) => ({ ...prev, [nextId]: cached }));
+      // Immediately process the next item
+      processNextInQueue();
+      return;
+    }
+
     setCurrentCrackingId(nextId);
 
     setTimeout(() => {
@@ -295,6 +403,9 @@ export default function Home() {
         ...prev,
         [currentCrackingId]: cracker.result!,
       }));
+      // Cache result for instant reload
+      const dungeon = dungeonsRef.current.find((d) => d.id === currentCrackingId);
+      if (dungeon) setCachedResult(dungeon, cracker.result!);
       processNextInQueue();
     }
 
@@ -302,6 +413,23 @@ export default function Home() {
       processNextInQueue();
     }
   }, [multiCrackActive, cracker.status, cracker.result, currentCrackingId, processNextInQueue]);
+
+  /** LocalStorage key for "never show again" on pre-1.13 warning */
+  const PRE113_WARNING_KEY = "suppress_pre113_warning";
+
+  /** Helper: actually kick off the multi-crack run for the given ids */
+  const startMultiCrack = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      const [firstId, ...rest] = ids;
+      crackQueueRef.current = rest;
+      setMultiCrackActive(true);
+      const firstDungeon = dungeonsRef.current.find((d) => d.id === firstId)!;
+      setCurrentCrackingId(firstId);
+      startCrackForDungeon(firstDungeon);
+    },
+    [startCrackForDungeon]
+  );
 
   // ── Crack all valid dungeons sequentially (skipping already-cracked) ──
   const handleCrackAll = useCallback(() => {
@@ -313,20 +441,70 @@ export default function Home() {
       return;
     }
 
-    // Only queue valid dungeons that don't already have results
-    const uncrackedValidIds = dungeons
-      .filter((d) => isValid(d) && !dungeonResults[d.id])
-      .map((d) => d.id);
-    if (uncrackedValidIds.length === 0) return;
+    // ── Resolve cached results first ──
+    const validDungeons = dungeons.filter((d) => isValid(d) && !dungeonResults[d.id]);
+    const stillNeeded: string[] = [];
 
-    const [firstId, ...rest] = uncrackedValidIds;
-    crackQueueRef.current = rest;
-    setMultiCrackActive(true);
+    for (const d of validDungeons) {
+      const cached = getCachedResult(d);
+      if (cached) {
+        setDungeonResults((prev) => ({ ...prev, [d.id]: cached }));
+      } else {
+        stillNeeded.push(d.id);
+      }
+    }
 
-    const firstDungeon = dungeons.find((d) => d.id === firstId)!;
-    setCurrentCrackingId(firstId);
-    startCrackForDungeon(firstDungeon);
-  }, [multiCrackActive, isCracking, dungeons, dungeonResults, cracker, startCrackForDungeon]);
+    if (stillNeeded.length === 0) return;
+
+    // ── Pre-1.13 single dungeon warning ──
+    // A lone pre-1.13 dungeon produces hundreds of structure/world seeds,
+    // so warn the user that results won't be very useful without a second dungeon.
+    const validDungeonList = dungeons.filter(isValid);
+
+    const suppressed = (() => {
+      try { return localStorage.getItem(PRE113_WARNING_KEY) === "true"; } catch { return false; }
+    })();
+
+    if (validDungeonList.length === 1 && isOlderThan(validDungeonList[0], "1.13") && !suppressed) {
+      const d = validDungeonList[0];
+
+      setWarningDialog({
+        title: "Single Pre-1.13 Dungeon",
+        body: [
+          `"${d.label}" uses version ${d.version}.`,
+          "A single pre-1.13 dungeon typically results in hundreds of possible world seeds. Consider adding a second dungeon if you have the data to reduce the number of possibilities.",
+        ],
+        detail: "You can still crack it, but expect a number of candidate seeds in the hundreds.",
+        actions: [
+          {
+            label: "Cancel",
+            className: "mc-btn-outline",
+            onClick: () => setWarningDialog(null),
+          },
+          {
+            label: "Don\u2019t show again",
+            className: "mc-btn-outline",
+            onClick: () => {
+              try { localStorage.setItem(PRE113_WARNING_KEY, "true"); } catch {}
+              setWarningDialog(null);
+              startMultiCrack(stillNeeded);
+            },
+          },
+          {
+            label: "Proceed",
+            onClick: () => {
+              setWarningDialog(null);
+              startMultiCrack(stillNeeded);
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    // ── Normal flow ──
+    startMultiCrack(stillNeeded);
+  }, [multiCrackActive, isCracking, dungeons, dungeonResults, cracker, startMultiCrack]);
 
   // ── Computed results for multi-dungeon display ──
   const allResults = dungeons
@@ -379,13 +557,22 @@ export default function Home() {
         >
           {/* Scrollable dungeon tabs */}
           <div className="flex items-stretch gap-1 overflow-x-auto pb-1 min-w-0 flex-1">
-            {dungeons.map((d) => {
+            {dungeons.map((d, idx) => {
               const isActive = d.id === activeTabId;
 
               return (
                 <div
                   key={d.id}
-                  className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold transition-colors duration-200 border-b-2 cursor-pointer select-none flex-shrink-0 ${
+                  role="tab"
+                  tabIndex={20 + idx}
+                  aria-selected={isActive}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setActiveTabId(d.id);
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-3 py-2 text-xs font-semibold transition-colors duration-200 border-b-2 cursor-pointer select-none flex-shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-mc-green ${
                     isActive
                       ? "bg-mc-tab-active text-mc-text-highlight border-mc-green"
                       : "bg-mc-bg text-mc-text-dim hover:bg-mc-tab-active hover:text-mc-text border-transparent"
@@ -397,6 +584,7 @@ export default function Home() {
                       autoFocus
                       type="text"
                       value={d.label}
+                      tabIndex={-1}
                       onChange={(e) => updateDungeon({ ...d, label: e.target.value })}
                       onBlur={() => setEditingLabelId(null)}
                       onKeyDown={(e) => {
@@ -424,6 +612,7 @@ export default function Home() {
                         e.stopPropagation();
                         removeDungeon(d.id);
                       }}
+                      tabIndex={-1}
                       className="p-0.5 hover:bg-mc-bg-darker rounded transition-colors duration-200 flex-shrink-0 cursor-pointer"
                       title="Remove dungeon"
                     >
@@ -436,11 +625,12 @@ export default function Home() {
 
             <button
               onClick={addDungeon}
+              tabIndex={28}
               className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-mc-text-dim hover:text-mc-text hover:bg-mc-tab-active transition-colors duration-200 cursor-pointer border-b-2 border-transparent flex-shrink-0"
               title="Add dungeon"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Add Dungeon</span>
+              <span className="hidden sm:inline">Add</span>
             </button>
           </div>
 
@@ -448,6 +638,7 @@ export default function Home() {
           <div className="flex-shrink-0 border-l border-mc-border pl-1 ml-1">
             <button
               onClick={() => setActiveTabId(MULTI_TAB_ID)}
+              tabIndex={29}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-colors duration-200 border-b-2 cursor-pointer select-none h-full ${
                 isMultiTab
                   ? "bg-mc-tab-active text-mc-text-highlight border-mc-green"
@@ -455,7 +646,7 @@ export default function Home() {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Multi-Dungeons</span>
+              <span className="hidden sm:inline">Aggregate</span>
               {crackedCount > 0 && (
                 <span className="text-[10px] font-bold px-1.5 py-px border bg-[#6CC34922] text-[#6CC349] border-[#6CC34944]">
                   {crackedCount}
@@ -499,6 +690,7 @@ export default function Home() {
             >
               <button
                 onClick={handleCrackAll}
+                tabIndex={70}
                 disabled={
                   ((!cracker.workersReady || uncrackedValidCount === 0) &&
                   !multiCrackActive) || singleCrackBusy
@@ -612,7 +804,6 @@ export default function Home() {
                 <p className="text-sm text-mc-text-dim mb-1">No dungeons cracked yet</p>
                 <p className="text-xs text-mc-text-dim opacity-70">
                   Crack individual dungeons from their tabs, or use the button above to crack all at once.
-                  World seeds common to all dungeons will appear here.
                 </p>
               </div>
             )}
@@ -626,6 +817,16 @@ export default function Home() {
         floorSizeIndex={activeDungeon?.floorSizeIndex ?? 0}
         onClose={() => setPictureDialogOpen(false)}
         onApply={handleImageApply}
+      />
+
+      {/* ── Warning Dialog ── */}
+      <WarningDialog
+        open={warningDialog !== null}
+        title={warningDialog?.title ?? ""}
+        body={warningDialog?.body ?? []}
+        detail={warningDialog?.detail}
+        actions={warningDialog?.actions ?? []}
+        onClose={closeWarning}
       />
     </div>
   );

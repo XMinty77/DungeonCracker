@@ -69,9 +69,9 @@ export interface AnalysisSettings {
 }
 
 export const DEFAULT_SETTINGS: AnalysisSettings = {
-  minBrightness: 20,
+  minBrightness: 15,
   maxBrightness: 240,
-  sensitivityThreshold: 0.008,
+  sensitivityThreshold: 0,
 };
 
 const SETTINGS_STORAGE_KEY = "dungeon-cracker-analysis-settings";

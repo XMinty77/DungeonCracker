@@ -504,8 +504,8 @@ export function PictureImportDialog({
                                 <input
                                   type="range"
                                   min={0}
-                                  max={30}
-                                  step={1}
+                                  max={20}
+                                  step={0.5}
                                   value={settings.sensitivityThreshold * 1000}
                                   onChange={(e) =>
                                     updateSettings((s) => ({

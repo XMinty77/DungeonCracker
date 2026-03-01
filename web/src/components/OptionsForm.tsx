@@ -17,6 +17,8 @@ interface OptionsFormProps {
   spawnerZ: string;
   version: MCVersion;
   biome: Biome;
+  /** When true, empty / invalid spawner fields are highlighted red */
+  showValidation?: boolean;
   onSpawnerXChange: (v: string) => void;
   onSpawnerYChange: (v: string) => void;
   onSpawnerZChange: (v: string) => void;
@@ -30,12 +32,16 @@ export function OptionsForm({
   spawnerZ,
   version,
   biome,
+  showValidation,
   onSpawnerXChange,
   onSpawnerYChange,
   onSpawnerZChange,
   onVersionChange,
   onBiomeChange,
 }: OptionsFormProps) {
+  /** Return true when a spawner field is missing or not a valid integer */
+  const isMissing = (v: string) => v === "" || isNaN(parseInt(v));
+
   return (
     <motion.div
       initial={hasAnimated() ? false : { opacity: 0, x: 30 }}
@@ -60,33 +66,43 @@ export function OptionsForm({
                 value: spawnerX,
                 onChange: onSpawnerXChange,
                 placeholder: "320",
+                tab: 50,
               },
               {
                 label: "Y",
                 value: spawnerY,
                 onChange: onSpawnerYChange,
                 placeholder: "29",
+                tab: 51,
               },
               {
                 label: "Z",
                 value: spawnerZ,
                 onChange: onSpawnerZChange,
                 placeholder: "-418",
+                tab: 52,
               },
-            ].map(({ label, value, onChange, placeholder }) => (
-              <div key={label}>
-                <label className="block text-[11px] font-semibold text-mc-text-dim mb-1 uppercase tracking-wider">
-                  {label}
-                </label>
-                <input
-                  type="number"
-                  value={value}
-                  onChange={(e) => onChange(e.target.value)}
-                  placeholder={placeholder}
-                  className="mc-input"
-                />
-              </div>
-            ))}
+            ].map(({ label, value, onChange, placeholder, tab }) => {
+              const invalid = showValidation && isMissing(value);
+              return (
+                <div key={label}>
+                  <label className="block text-[11px] font-semibold text-mc-text-dim mb-1 uppercase tracking-wider">
+                    {label}
+                  </label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    placeholder={placeholder}
+                    tabIndex={tab}
+                    className={`mc-input ${invalid ? "!border-mc-red" : ""}`}
+                  />
+                  {invalid && (
+                    <p className="text-[10px] text-mc-red-text mt-0.5">Required</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -110,9 +126,10 @@ export function OptionsForm({
               onChange={(e) =>
                 onVersionChange(e.target.value as MCVersion)
               }
+              tabIndex={60}
               className="mc-select"
             >
-              {MC_VERSIONS.map((v) => (
+              {[...MC_VERSIONS].reverse().map((v) => (
                 <option key={v} value={v}>
                   {v}
                 </option>
@@ -126,6 +143,7 @@ export function OptionsForm({
             <select
               value={biome}
               onChange={(e) => onBiomeChange(e.target.value as Biome)}
+              tabIndex={61}
               className="mc-select"
             >
               {BIOMES.map((b) => (

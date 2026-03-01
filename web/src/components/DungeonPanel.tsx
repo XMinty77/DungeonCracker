@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Zap, Cpu, AlertTriangle, XCircle } from "lucide-react";
 import { FloorGrid } from "@/components/FloorGrid";
@@ -169,6 +169,32 @@ export function DungeonPanel({
   // During multi-crack, another dungeon may be cracking (not this one)
   const multiCrackBusy = multiCrackActive && !isCracking;
 
+  // ── Validation highlight state ──
+  const [showValidation, setShowValidation] = useState(false);
+
+  // Clear validation highlight when the user starts editing
+  const prevValidRef = useRef(valid);
+  if (!prevValidRef.current && valid && showValidation) {
+    // field went from invalid → valid, clear highlight
+    setShowValidation(false);
+  }
+  prevValidRef.current = valid;
+
+  const handleCrackClick = useCallback(() => {
+    // If currently cracking, delegate to parent (stop)
+    if (isCracking) {
+      onCrack();
+      return;
+    }
+    // If inputs invalid, highlight them instead of cracking
+    if (!valid) {
+      setShowValidation(true);
+      return;
+    }
+    setShowValidation(false);
+    onCrack();
+  }, [isCracking, valid, onCrack]);
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
       {/* Left column: Dungeon Floor */}
@@ -193,6 +219,7 @@ export function DungeonPanel({
           spawnerZ={dungeon.spawnerZ}
           version={dungeon.version}
           biome={dungeon.biome}
+          showValidation={showValidation}
           onSpawnerXChange={handleSpawnerXChange}
           onSpawnerYChange={handleSpawnerYChange}
           onSpawnerZChange={handleSpawnerZChange}
@@ -207,8 +234,9 @@ export function DungeonPanel({
           transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
         >
           <button
-            onClick={onCrack}
-            disabled={(!canCrack && !isCracking) || multiCrackBusy}
+            onClick={handleCrackClick}
+            tabIndex={70}
+            disabled={(!workersReady && !isCracking) || multiCrackBusy || crackerStatus === "preparing"}
             className={`mc-btn w-full !py-3 !text-sm relative overflow-hidden ${
               isCracking ? "mc-btn-red" : ""
             }`}

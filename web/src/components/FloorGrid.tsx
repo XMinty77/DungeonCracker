@@ -188,6 +188,7 @@ export function FloorGrid({
                     return (
                       <motion.button
                         key={key}
+                        tabIndex={-1}
                         initial={
                           !hasAnimated() && visible
                             ? { scale: 0, opacity: 0 }
@@ -276,12 +277,13 @@ export function FloorGrid({
           <div className="flex items-center gap-2">
             {/* X dimension */}
             <div className="flex">
-              {([9, 7] as const).map((val) => {
+              {([9, 7] as const).map((val, i) => {
                 const isActive =
                   val === (fs.xMax - fs.xMin);
                 return (
                   <button
                     key={`x-${val}`}
+                    tabIndex={30 + i}
                     onClick={() => {
                       const zDim = fs.zMax - fs.zMin;
                       const idx =
@@ -307,12 +309,13 @@ export function FloorGrid({
 
             {/* Z dimension */}
             <div className="flex">
-              {([9, 7] as const).map((val) => {
+              {([9, 7] as const).map((val, i) => {
                 const isActive =
                   val === (fs.zMax - fs.zMin);
                 return (
                   <button
                     key={`z-${val}`}
+                    tabIndex={32 + i}
                     onClick={() => {
                       const xDim = fs.xMax - fs.xMin;
                       const idx =
@@ -345,6 +348,7 @@ export function FloorGrid({
               return (
                 <button
                   key={mode}
+                  tabIndex={-1}
                   onClick={() => setInputMode(mode)}
                   className={`h-8 px-3 text-xs font-semibold transition-colors duration-200 border-y-2 border-x first:border-l-2 last:border-r-2 flex items-center gap-1.5 ${
                     isActive
@@ -361,6 +365,7 @@ export function FloorGrid({
 
           <button
             onClick={onClear}
+            tabIndex={34}
             className="mc-btn h-8 !py-0 !px-3 !text-xs"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -370,6 +375,7 @@ export function FloorGrid({
           {onUsePicture && (
             <button
               onClick={onUsePicture}
+              tabIndex={35}
               className="mc-btn h-8 !py-0 !px-3 !text-xs"
               title="Import floor pattern from a screenshot"
             >
@@ -440,6 +446,7 @@ export function FloorGrid({
               }
               spellCheck={false}
               autoComplete="off"
+              tabIndex={40}
               className="mc-input font-mono !text-xs tracking-widest flex-1 min-w-0"
             />
             <button
@@ -448,6 +455,7 @@ export function FloorGrid({
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
+              tabIndex={41}
               className="mc-btn h-[38px] !py-0 !px-2.5 shrink-0"
               title="Copy pattern"
             >

@@ -120,12 +120,13 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
         <div className="flex items-stretch border-b border-mc-border">
           {/* Tabs */}
           <div className="flex flex-1 min-w-0">
-            {tabs.map((tab) => {
+            {tabs.map((tab, i) => {
               const Icon = tab.icon;
               const isActive = tab.id === activeTab;
               return (
                 <button
                   key={tab.id}
+                  tabIndex={80 + i}
                   onClick={() => {
                     setActiveTab(tab.id);
                     setCopied(false);
@@ -164,6 +165,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             {active.seeds.length > 0 && (
               <button
                 onClick={copySeeds}
+                tabIndex={83}
                 className="p-1.5 hover:bg-mc-tab-active transition-colors duration-200 cursor-pointer"
                 title="Copy seeds to clipboard"
               >
@@ -177,6 +179,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
             {totalSeeds > 0 && (
               <button
                 onClick={saveResults}
+                tabIndex={84}
                 className="p-1.5 hover:bg-mc-tab-active transition-colors duration-200 cursor-pointer"
                 title="Download all results as .txt"
               >
