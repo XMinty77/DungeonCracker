@@ -1,9 +1,11 @@
 # Dungeon Cracker (Rust)
 
-The Minecraft dungeon floor seed cracker, ported to Rust with Copilot.
+A Minecraft dungeon floor seed cracker, ported from original Java projects to Rust with Copilot, and supplemented with a web UI.
 Supports Minecraft **1.8 – 1.17** and compiles to both a native CLI binary and a WebAssembly module for in-browser use.
 
-If you have any modification you'd like to make, please contact me via Discord to ensure I receive a notification (@xminty77). I'll be happy to add you as a contributor.
+This software is currently in alpha, minimal testing has been done.
+
+If you find any issues or have any modification you'd like to suggest or make, please contact me via Discord to ensure I receive a notification (@xminty77). I'll be happy to receive feedback or add you as a contributor.
 
 ## Usage
 
@@ -40,8 +42,8 @@ wasm-pack build --target web -- --features wasm
 
 The code is ported from the following projects, all credit goes to them for the brains of the cracker:
 
-- **[Kludwisz/DungeonCracker](https://github.com/Kludwisz/DungeonCracker)** — original dungeon cracker
-- **[Kinomora/DungeonCracker](https://github.com/Kinomora/DungeonCracker)** — another dungeon cracker
+- **[Kludwisz/DungeonCracker](https://github.com/Kludwisz/DungeonCracker)** — original dungeon cracker (main base for the port)
+- **[Kinomora/DungeonCracker](https://github.com/Kinomora/DungeonCracker)** — another dungeon cracker (support for older versions)
 - **[mjtb49/LattiCG](https://github.com/mjtb49/LattiCG)** - core math library
 - **[mjtb49/mc_seed_java](https://github.com/mjtb49/mc_seed_java)**
 - **[mjtb49/mc_math_java](https://github.com/mjtb49/mc_math_java)**
