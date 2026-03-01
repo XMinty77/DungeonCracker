@@ -11,6 +11,7 @@ import {
   TILE_NAMES,
   FLOOR_SIZES,
 } from "@/lib/types";
+import { hasAnimated } from "@/lib/initial-animation";
 
 type InputMode = "fast" | "cycle";
 
@@ -39,15 +40,8 @@ export function FloorGrid({
   const [hoveredCell, setHoveredCell] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [inputMode, setInputMode] = useState<InputMode>("cycle");
-  const [initialAnimDone, setInitialAnimDone] = useState(false);
   const patternRef = useRef<HTMLInputElement>(null);
   const cursorRef = useRef<number | null>(null);
-
-  // Mark initial pop animation as done after tiles finish appearing
-  useEffect(() => {
-    const timer = setTimeout(() => setInitialAnimDone(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Track which mouse button is held for fast-mode paint dragging
   // 0 = left, 2 = right, null = not painting
@@ -142,7 +136,7 @@ export function FloorGrid({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -30 }}
+      initial={hasAnimated() ? false : { opacity: 0, x: -30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
     >
@@ -195,7 +189,7 @@ export function FloorGrid({
                       <motion.button
                         key={key}
                         initial={
-                          !initialAnimDone && visible
+                          !hasAnimated() && visible
                             ? { scale: 0, opacity: 0 }
                             : false
                         }
@@ -204,7 +198,7 @@ export function FloorGrid({
                           opacity: 1,
                         }}
                         transition={
-                          !initialAnimDone && visible
+                          !hasAnimated() && visible
                             ? {
                                 delay: popDelay,
                                 duration: 0.15,

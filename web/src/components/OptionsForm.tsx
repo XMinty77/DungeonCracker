@@ -9,6 +9,7 @@ import {
   type MCVersion,
   type Biome,
 } from "@/lib/types";
+import { hasAnimated } from "@/lib/initial-animation";
 
 interface OptionsFormProps {
   spawnerX: string;
@@ -37,7 +38,7 @@ export function OptionsForm({
 }: OptionsFormProps) {
   return (
     <motion.div
-      initial={{ opacity: 0, x: 30 }}
+      initial={hasAnimated() ? false : { opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.15, ease: "easeOut" }}
       className="space-y-4"

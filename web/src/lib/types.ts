@@ -95,3 +95,16 @@ export type CrackStatus =
   | "cracking"
   | "done"
   | "error";
+
+// ── Dungeon entry (multi-dungeon support) ──
+export interface DungeonEntry {
+  id: string;
+  label: string;
+  floorData: Tile[][];
+  floorSizeIndex: number;
+  spawnerX: string;
+  spawnerY: string;
+  spawnerZ: string;
+  version: MCVersion;
+  biome: Biome;
+}

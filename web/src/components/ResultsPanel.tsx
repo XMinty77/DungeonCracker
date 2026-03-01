@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CrackResult } from "@/lib/types";
+import { hasAnimated } from "@/lib/initial-animation";
 
 interface ResultsPanelProps {
   result: CrackResult;
@@ -96,7 +97,7 @@ export function ResultsPanel({ result }: ResultsPanelProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 30 }}
+      initial={hasAnimated() ? false : { opacity: 0, x: 30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
     >
