@@ -33,7 +33,7 @@ import {
   deserializeDungeons,
 } from "@/lib/hash-serialization";
 import { hasAnimated, markAnimated } from "@/lib/initial-animation";
-import { getCachedResult, setCachedResult } from "@/lib/crack-cache";
+import { getCachedResult, setCachedResult, pruneCache } from "@/lib/crack-cache";
 
 let nextDungeonId = 2; // starts at 2 because the initial dungeon is always id "1"
 function makeDungeon(label?: string): DungeonEntry {
@@ -100,6 +100,22 @@ export default function Home() {
   const [currentCrackingId, setCurrentCrackingId] = useState<string | null>(null);
   const crackQueueRef = useRef<string[]>([]);
 
+  /**
+   * Snapshots of dungeon settings captured at crack-start time.
+   * Keyed by dungeon id — used so that setCachedResult stores the result
+   * against the settings that actually produced it, not the (possibly
+   * edited) current settings.
+   */
+  const crackSnapshotsRef = useRef<Record<string, DungeonEntry>>({});
+
+  /**
+   * Tracks the last cracker.result reference that was already consumed
+   * by an effect.  Prevents the same result object from being saved
+   * twice when `currentCrackingId` changes before `cracker.status`
+   * transitions away from "done".
+   */
+  const lastConsumedResultRef = useRef<CrackResult | null>(null);
+
   const [pictureDialogOpen, setPictureDialogOpen] = useState(false);
 
   const cracker = useCracker();
@@ -153,6 +169,11 @@ export default function Home() {
     if (hasAnimated()) return;
     const timer = setTimeout(markAnimated, 800);
     return () => clearTimeout(timer);
+  }, []);
+
+  // ── Prune stale / excess cache entries on page load ──
+  useEffect(() => {
+    pruneCache();
   }, []);
 
   // ── Dungeon management ──
@@ -261,6 +282,7 @@ export default function Home() {
 
   const startCrackForDungeon = useCallback(
     (dungeon: DungeonEntry) => {
+      lastConsumedResultRef.current = null;
       cracker.crack(buildCrackParams(dungeon));
     },
     [cracker, buildCrackParams]
@@ -319,8 +341,10 @@ export default function Home() {
                 return next;
               });
               setCurrentCrackingId(activeDungeon.id);
+              crackSnapshotsRef.current[activeDungeon.id] = activeDungeon;
               setMultiCrackActive(false);
               crackQueueRef.current = [];
+              lastConsumedResultRef.current = null;
               cracker.crack(params);
             },
           },
@@ -337,9 +361,11 @@ export default function Home() {
     });
 
     setCurrentCrackingId(activeDungeon.id);
+    crackSnapshotsRef.current[activeDungeon.id] = activeDungeon;
     setMultiCrackActive(false);
     crackQueueRef.current = [];
 
+    lastConsumedResultRef.current = null;
     cracker.crack(params);
   }, [isCracking, multiCrackActive, activeDungeon, cracker, buildCrackParams]);
 
@@ -349,15 +375,20 @@ export default function Home() {
       !multiCrackActive &&
       cracker.status === "done" &&
       cracker.result &&
+      cracker.result !== lastConsumedResultRef.current &&
       currentCrackingId
     ) {
+      lastConsumedResultRef.current = cracker.result;
       setDungeonResults((prev) => ({
         ...prev,
         [currentCrackingId]: cracker.result!,
       }));
-      // Cache result for instant reload
-      const dungeon = dungeonsRef.current.find((d) => d.id === currentCrackingId);
-      if (dungeon) setCachedResult(dungeon, cracker.result!);
+      // Cache result using the snapshot captured at crack-start
+      const snapshot = crackSnapshotsRef.current[currentCrackingId];
+      if (snapshot) {
+        setCachedResult(snapshot, cracker.result!);
+        delete crackSnapshotsRef.current[currentCrackingId];
+      }
     }
   }, [multiCrackActive, cracker.status, cracker.result, currentCrackingId]);
 
@@ -388,28 +419,37 @@ export default function Home() {
     }
 
     setCurrentCrackingId(nextId);
+    crackSnapshotsRef.current[nextId] = nextDungeon;
 
-    setTimeout(() => {
-      startCrackForDungeon(nextDungeon);
-    }, 50);
+    startCrackForDungeon(nextDungeon);
   }, [startCrackForDungeon]);
 
   // ── Watch cracker status to drive multi-crack queue ──
   useEffect(() => {
     if (!multiCrackActive) return;
 
-    if (cracker.status === "done" && cracker.result && currentCrackingId) {
+    if (
+      cracker.status === "done" &&
+      cracker.result &&
+      cracker.result !== lastConsumedResultRef.current &&
+      currentCrackingId
+    ) {
+      lastConsumedResultRef.current = cracker.result;
       setDungeonResults((prev) => ({
         ...prev,
         [currentCrackingId]: cracker.result!,
       }));
-      // Cache result for instant reload
-      const dungeon = dungeonsRef.current.find((d) => d.id === currentCrackingId);
-      if (dungeon) setCachedResult(dungeon, cracker.result!);
+      // Cache result using the snapshot captured at crack-start
+      const snapshot = crackSnapshotsRef.current[currentCrackingId];
+      if (snapshot) {
+        setCachedResult(snapshot, cracker.result!);
+        delete crackSnapshotsRef.current[currentCrackingId];
+      }
       processNextInQueue();
     }
 
     if (cracker.status === "error" && currentCrackingId) {
+      delete crackSnapshotsRef.current[currentCrackingId];
       processNextInQueue();
     }
   }, [multiCrackActive, cracker.status, cracker.result, currentCrackingId, processNextInQueue]);
@@ -426,6 +466,7 @@ export default function Home() {
       setMultiCrackActive(true);
       const firstDungeon = dungeonsRef.current.find((d) => d.id === firstId)!;
       setCurrentCrackingId(firstId);
+      crackSnapshotsRef.current[firstId] = firstDungeon;
       startCrackForDungeon(firstDungeon);
     },
     [startCrackForDungeon]
@@ -532,11 +573,17 @@ export default function Home() {
 
   // Per-dungeon result for the active dungeon
   const activeDungeonResult = activeDungeon ? dungeonResults[activeDungeon.id] ?? null : null;
-  // Show live cracker result if it's for the active dungeon and not yet saved
+  // Show live cracker result if it's for the active dungeon and not yet saved.
+  // Guard against stale results that have already been consumed and assigned
+  // to a different dungeon id (can happen briefly between multi-crack steps).
+  const liveResult =
+    cracker.result && cracker.result !== lastConsumedResultRef.current
+      ? cracker.result
+      : null;
   const displayResult =
     activeDungeonResult ??
-    (isActiveDungeonCracking || (cracker.status === "done" && currentCrackingId === activeDungeon?.id)
-      ? cracker.result
+    ((isActiveDungeonCracking || (cracker.status === "done" && currentCrackingId === activeDungeon?.id))
+      ? liveResult
       : null);
 
   // ── Editing the dungeon label ──
