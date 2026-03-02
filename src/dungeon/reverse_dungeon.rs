@@ -99,7 +99,7 @@ pub fn crack_dungeon(
     let possibilities = DungeonDataParser::get_all_possibilities(floor_sequence)
         .ok_or_else(|| "Too many possibilities (>128 unknown permutations)".to_string())?;
 
-    eprintln!("[info] Generated {} floor interpretation(s)", possibilities.len());
+    verbose_eprintln!("[info] Generated {} floor interpretation(s)", possibilities.len());
 
     // For pre-1.13, chunk population is offset by +8 blocks,
     // so the spawner coordinates need to be adjusted by -8.
@@ -112,13 +112,13 @@ pub fn crack_dungeon(
     let offset_x = adj_x & 15;
     let y = spawner_y;
     let offset_z = adj_z & 15;
-    eprintln!("[info] Offsets: x={}, y={}, z={}", offset_x, y, offset_z);
+    verbose_eprintln!("[info] Offsets: x={}, y={}, z={}", offset_x, y, offset_z);
 
     let mut struct_seeds_set = HashSet::new();
     let mut dungeon_seeds_set = HashSet::new();
 
     for (poss_idx, program) in possibilities.iter().enumerate() {
-        eprintln!("[progress] Processing possibility {}/{} ({} instructions)...", poss_idx + 1, possibilities.len(), program.len());
+        verbose_eprintln!("[progress] Processing possibility {}/{} ({} instructions)...", poss_idx + 1, possibilities.len(), program.len());
         // Build the DynamicProgram equivalent
         let mut filtered_skips: Vec<FilteredSkip> = Vec::new();
         let mut call_sequence: Vec<CallEntry> = Vec::new();
@@ -198,16 +198,16 @@ pub fn crack_dungeon(
             }
         }
 
-        eprintln!("[progress]   Built reverser with {} dimensions, info_bits={:.1}, success_chance={:.6}",
+        verbose_eprintln!("[progress]   Built reverser with {} dimensions, info_bits={:.1}, success_chance={:.6}",
                  reverser.dimensions(), info_bits, reverser.success_chance());
-        eprintln!("[progress]   Running find_all_valid_seeds (lattice reduction + enumeration)...");
+        verbose_eprintln!("[progress]   Running find_all_valid_seeds (lattice reduction + enumeration)...");
         let dungeon_seeds_xored = reverser.find_all_valid_seeds();
-        eprintln!("[progress]   Found {} candidate dungeon seed(s)", dungeon_seeds_xored.len());
+        verbose_eprintln!("[progress]   Found {} candidate dungeon seed(s)", dungeon_seeds_xored.len());
         let mut rand = ChunkRand::new();
 
         for (ds_idx, seed) in dungeon_seeds_xored.iter().enumerate() {
             if ds_idx % 100 == 0 && ds_idx > 0 {
-                eprintln!("[progress]   Processing dungeon seed {}/{}...", ds_idx, dungeon_seeds_xored.len());
+                verbose_eprintln!("[progress]   Processing dungeon seed {}/{}...", ds_idx, dungeon_seeds_xored.len());
             }
             dungeon_seeds_set.insert(*seed);
 
@@ -219,9 +219,9 @@ pub fn crack_dungeon(
     }
 
     // Convert structure seeds to world seeds
-    eprintln!("[progress] All possibilities processed. {} dungeon seed(s), {} structure seed(s).",
+    verbose_eprintln!("[progress] All possibilities processed. {} dungeon seed(s), {} structure seed(s).",
              dungeon_seeds_set.len(), struct_seeds_set.len());
-    eprintln!("[progress] Converting structure seeds to world seeds...");
+    verbose_eprintln!("[progress] Converting structure seeds to world seeds...");
     let mut world_seeds_set = HashSet::new();
     for struct_seed in &struct_seeds_set {
         let equivalents = next_long_reverser::get_next_long_equivalents(*struct_seed);
@@ -297,11 +297,11 @@ pub fn crack_dungeon_partial(
             return Err("Not enough information in the floor pattern".to_string());
         }
 
-        eprintln!("[worker] Processing possibility {}/{}, branches [{}, {})",
+        verbose_eprintln!("[worker] Processing possibility {}/{}, branches [{}, {})",
                  poss_idx + 1, possibilities.len(), branch_start, branch_end);
 
         let dungeon_seeds_xored = reverser.find_seeds_for_branches(branch_start, branch_end);
-        eprintln!("[worker] Found {} candidate dungeon seed(s)", dungeon_seeds_xored.len());
+        verbose_eprintln!("[worker] Found {} candidate dungeon seed(s)", dungeon_seeds_xored.len());
 
         let mut rand = ChunkRand::new();
 

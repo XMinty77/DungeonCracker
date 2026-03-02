@@ -107,10 +107,10 @@ impl Optimize {
         while self.step() {
             iters += 1;
             if iters % 10000 == 0 {
-                eprintln!("[simplex]     solve iteration {}, table {}x{}", iters, self.rows, self.cols);
+                verbose_eprintln!("[simplex]     solve iteration {}, table {}x{}", iters, self.rows, self.cols);
             }
             if iters > 1_000_000 {
-                eprintln!("[simplex]     WARNING: over 1M iterations, likely cycling. Aborting.");
+                verbose_eprintln!("[simplex]     WARNING: over 1M iterations, likely cycling. Aborting.");
                 break;
             }
         }

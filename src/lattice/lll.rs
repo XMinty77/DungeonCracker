@@ -61,7 +61,7 @@ pub fn reduce(lattice: &BigMatrix, params: &LLLParams) -> LLLResult {
     while k < n {
         iteration += 1;
         if iteration % 1000 == 0 {
-            eprintln!("[lll]     iteration {}, k={}/{}", iteration, k, n);
+            verbose_eprintln!("[lll]     iteration {}, k={}/{}", iteration, k, n);
         }
         if k > kmax && update_gso {
             kmax = k;

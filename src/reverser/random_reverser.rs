@@ -232,15 +232,15 @@ impl JavaRandomReverser {
             return (0..self.lcg.modulus).collect();
         }
 
-        eprintln!("[lattice]   Creating lattice ({} dimensions)...", self.dimensions);
+        verbose_eprintln!("[lattice]   Creating lattice ({} dimensions)...", self.dimensions);
         self.create_lattice();
-        eprintln!("[lattice]   Lattice created and LLL-reduced.");
+        verbose_eprintln!("[lattice]   Lattice created and LLL-reduced.");
 
         let (lattice, lower, upper, offset) = self.prepare_enumerate_params();
 
-        eprintln!("[lattice]   Enumerating lattice points...");
+        verbose_eprintln!("[lattice]   Enumerating lattice points...");
         let results = enumerate::enumerate_bounds(&lattice, &lower, &upper, &offset);
-        eprintln!("[lattice]   Enumeration found {} candidate(s).", results.len());
+        verbose_eprintln!("[lattice]   Enumeration found {} candidate(s).", results.len());
 
         self.filter_results(&results)
     }
@@ -269,11 +269,11 @@ impl JavaRandomReverser {
         self.create_lattice();
         let (lattice, lower, upper, offset) = self.prepare_enumerate_params();
 
-        eprintln!("[lattice]   Enumerating branches [{}, {})...", branch_start, branch_end);
+        verbose_eprintln!("[lattice]   Enumerating branches [{}, {})...", branch_start, branch_end);
         let results = enumerate::enumerate_bounds_partial(
             &lattice, &lower, &upper, &offset, branch_start, branch_end,
         );
-        eprintln!("[lattice]   Partial enumeration found {} candidate(s).", results.len());
+        verbose_eprintln!("[lattice]   Partial enumeration found {} candidate(s).", results.len());
 
         self.filter_results(&results)
     }
@@ -314,7 +314,7 @@ impl JavaRandomReverser {
 
         // Filter by filtered skips
         if !self.filtered_skips.is_empty() {
-            eprintln!("[lattice]   Filtering {} seed(s) with {} filtered skip(s)...", seeds.len(), self.filtered_skips.len());
+            verbose_eprintln!("[lattice]   Filtering {} seed(s) with {} filtered skip(s)...", seeds.len(), self.filtered_skips.len());
             seeds.retain(|&seed| {
                 for skip in &self.filtered_skips {
                     let mut rr = Rand::of_internal_seed(&self.lcg, seed);

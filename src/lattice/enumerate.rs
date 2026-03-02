@@ -134,7 +134,7 @@ fn enumerate_rt_partial(
     let mut widths: Vec<BigFraction> = Vec::with_capacity(root_size);
     let mut order: Vec<usize> = Vec::with_capacity(root_size);
 
-    eprintln!("[enumerate-partial] Computing dimension widths for {} dimensions...", root_size);
+    verbose_eprintln!("[enumerate-partial] Computing dimension widths for {} dimensions...", root_size);
 
     for i in 0..root_size {
         let gradient = root_inverse.get_row(i);
@@ -198,7 +198,7 @@ fn enumerate_rt(
     let mut widths: Vec<BigFraction> = Vec::with_capacity(root_size);
     let mut order: Vec<usize> = Vec::with_capacity(root_size);
 
-    eprintln!("[enumerate] Computing dimension widths for {} dimensions (LP table: {}x{})...",
+    verbose_eprintln!("[enumerate] Computing dimension widths for {} dimensions (LP table: {}x{})...",
              root_size, root_constraints.table_size().0, root_constraints.table_size().1);
 
     for i in 0..root_size {
@@ -206,7 +206,7 @@ fn enumerate_rt(
         let (_, min_val) = root_constraints.clone().minimize(&gradient);
         let (_, max_val) = root_constraints.clone().maximize(&gradient);
         let w = max_val.sub_frac(&min_val);
-        eprintln!("[enumerate]   dim {} width = {} (min={}, max={})", i, w, min_val, max_val);
+        verbose_eprintln!("[enumerate]   dim {} width = {} (min={}, max={})", i, w, min_val, max_val);
         widths.push(w);
         order.push(i);
     }
@@ -242,13 +242,13 @@ fn collect_solutions(node: &SearchNode, results: &mut Vec<BigVector>) {
     if node.depth == node.size {
         results.push(node.fixed.clone());
         if results.len() % 100 == 0 {
-            eprintln!("[enumerate] Found {} solutions so far...", results.len());
+            verbose_eprintln!("[enumerate] Found {} solutions so far...", results.len());
         }
         return;
     }
 
     if node.depth <= 1 {
-        eprintln!("[enumerate] Exploring depth={}/{} (dimension index={})", node.depth, node.size, node.order[node.depth]);
+        verbose_eprintln!("[enumerate] Exploring depth={}/{} (dimension index={})", node.depth, node.size, node.order[node.depth]);
     }
 
     let index = node.order[node.depth];
@@ -344,7 +344,7 @@ fn collect_solutions_depth0_partial(
     let start = branch_start.max(0) as usize;
     let end = (branch_end.min(total) as usize).min(all_values.len());
 
-    eprintln!("[enumerate-partial] Exploring branches {}-{} of {} at depth 0 (dim index={})",
+    verbose_eprintln!("[enumerate-partial] Exploring branches {}-{} of {} at depth 0 (dim index={})",
              start, end, total, index);
 
     for idx in start..end {
