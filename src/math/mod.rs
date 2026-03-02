@@ -1,3 +1,4 @@
+pub mod int_type;
 pub mod big_fraction;
 pub mod big_vector;
 pub mod big_matrix;

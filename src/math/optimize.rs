@@ -1,4 +1,4 @@
-use super::big_fraction::BigFraction;
+use super::big_fraction::{BigFraction, FracOps};
 use super::big_matrix::BigMatrix;
 use super::big_vector::BigVector;
 use super::gauss_jordan;
@@ -78,7 +78,7 @@ impl Optimize {
         let obj_row = BigVector::new(self.cols);
         self.table.set_row(self.rows - 1, &obj_row);
 
-        let neg_transformed = self.transform_for_table(gradient, &BigFraction::zero());
+        let neg_transformed = self.transform_for_table(gradient, &BigFraction::frac_zero());
         // Subtract from objective row
         for c in 0..self.cols {
             let val = self.table.get(self.rows - 1, c).sub_frac(neg_transformed.get(c));
@@ -127,7 +127,7 @@ impl Optimize {
         }
 
         let mut entering: Option<usize> = None;
-        let mut candidate = BigFraction::zero();
+        let mut candidate = BigFraction::frac_zero();
 
         for col in 0..(self.cols - 1) {
             let x = self.table.get(self.rows - 1, col);
@@ -150,7 +150,7 @@ impl Optimize {
         };
 
         let mut exiting: Option<usize> = None;
-        candidate = BigFraction::zero(); // reuse for ratio test
+        candidate = BigFraction::frac_zero(); // reuse for ratio test
 
         for row in 0..(self.rows - 1) {
             let x = self.table.get(row, entering);
@@ -227,7 +227,7 @@ impl Optimize {
         }
 
         if new_table.get(self.rows - 1, self.cols - 1).signum() < 0 {
-            new_table.row_multiply(self.rows - 1, &BigFraction::minus_one());
+            new_table.row_multiply(self.rows - 1, &BigFraction::frac_minus_one());
         }
 
         let mut new_basics = self.basics.clone();
@@ -324,7 +324,7 @@ impl Optimize {
         // Ensure RHS is non-negative
         for row in 0..constraints {
             if inner.get(row, variables).signum() < 0 {
-                inner.row_multiply(row, &BigFraction::minus_one());
+                inner.row_multiply(row, &BigFraction::frac_minus_one());
             }
         }
 
@@ -444,7 +444,7 @@ impl OptimizeBuilder {
             table.set(constraint, variables + 2 * self.size, self.rights[i].clone());
 
             if self.slacks[i] != 0 {
-                table.set(constraint, slack, BigFraction::from_i64(self.slacks[i] as i64));
+                table.set(constraint, slack, BigFraction::frac_from_i64(self.slacks[i] as i64));
                 slack += 1;
             }
             constraint += 1;
@@ -458,9 +458,9 @@ impl OptimizeBuilder {
             if pivot_rows[col] != -1 {
                 continue;
             }
-            table.set(constraint, col, BigFraction::one());
-            table.set(constraint, slack, BigFraction::one());
-            table.set(constraint, slack + 1, BigFraction::minus_one());
+            table.set(constraint, col, BigFraction::frac_one());
+            table.set(constraint, slack, BigFraction::frac_one());
+            table.set(constraint, slack + 1, BigFraction::frac_minus_one());
             constraint += 1;
             slack += 2;
         }

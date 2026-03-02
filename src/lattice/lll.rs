@@ -1,8 +1,7 @@
-use crate::math::big_fraction::BigFraction;
+use crate::math::big_fraction::{BigFraction, FracOps};
 use crate::math::big_matrix::BigMatrix;
 use crate::math::big_vector::BigVector;
-use num_bigint::BigInt;
-use num_traits::Zero;
+use crate::math::int_type::IntOps;
 
 /// LLL lattice basis reduction parameters.
 /// Faithful port of LattiCG's Params.java.
@@ -14,7 +13,7 @@ pub struct LLLParams {
 impl LLLParams {
     pub fn recommended() -> Self {
         LLLParams {
-            delta: BigFraction::new(99i64, 100i64),
+            delta: BigFraction::frac_new(99i64, 100i64),
             max_stage: -1,
         }
     }
@@ -23,7 +22,7 @@ impl LLLParams {
 impl Default for LLLParams {
     fn default() -> Self {
         LLLParams {
-            delta: BigFraction::new(75i64, 100i64),
+            delta: BigFraction::frac_new(75i64, 100i64),
             max_stage: -1,
         }
     }
@@ -134,7 +133,7 @@ fn update_gso_at(
             let scaled = base_gso.get_row(j).multiply_scalar(&mu_kj);
             new_row.subtract_assign(&scaled);
         } else {
-            mu.set(k, j, BigFraction::zero());
+            mu.set(k, j, BigFraction::frac_zero());
         }
     }
     base_gso.set_row(k, &new_row);
@@ -154,8 +153,8 @@ fn red(
     i: usize,
     j: usize,
 ) {
-    let r = mu.get(i, j).round();
-    if r == BigInt::zero() {
+    let r = FracOps::round(mu.get(i, j));
+    if r.int_is_zero() {
         return;
     }
 
@@ -172,11 +171,11 @@ fn red(
     coordinates.set_row(i, &coord_i);
 
     // mu[i][j] -= r
-    let new_mu = mu.get(i, j).sub_frac(&BigFraction::from_bigint(r.clone()));
+    let new_mu = mu.get(i, j).sub_frac(&BigFraction::frac_from_bigint(r.clone()));
     mu.set(i, j, new_mu);
 
     for col in 0..j {
-        let new_val = mu.get(i, col).sub_frac(&mu.get(j, col).mul_frac(&BigFraction::from_bigint(r.clone())));
+        let new_val = mu.get(i, col).sub_frac(&mu.get(j, col).mul_frac(&BigFraction::frac_from_bigint(r.clone())));
         mu.set(i, col, new_val);
     }
 }
@@ -206,11 +205,11 @@ fn swapg(
     if tb.is_zero() {
         // Case 1: tB == 0
         norms.set(k, norms.get(k - 1).clone());
-        norms.set(k - 1, BigFraction::zero());
+        norms.set(k - 1, BigFraction::frac_zero());
         base_gso.swap_rows(k, k - 1);
         for i in (k + 1)..=kmax {
             mu.set(i, k, mu.get(i, k - 1).clone());
-            mu.set(i, k - 1, BigFraction::zero());
+            mu.set(i, k - 1, BigFraction::frac_zero());
         }
     } else if norms.get(k).is_zero() && !tmu.is_zero() {
         // Case 2: B[k] == 0 and tmu != 0

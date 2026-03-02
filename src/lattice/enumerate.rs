@@ -1,10 +1,9 @@
-use crate::math::big_fraction::BigFraction;
+use crate::math::big_fraction::{BigFraction, FracOps};
 use crate::math::big_matrix::BigMatrix;
 use crate::math::big_vector::BigVector;
 use crate::math::lu_decomposition;
 use crate::math::optimize::{Optimize, OptimizeBuilder};
-use num_bigint::BigInt;
-use num_traits::One;
+use crate::math::int_type::{Int, IntOps};
 
 /// High-level enumerate function matching Java's Enumerate.enumerate(basis, lower, upper, offset).
 /// This is used by RandomReverser.findAllValidSeeds().
@@ -69,18 +68,17 @@ pub fn get_branch_count(
     let (_, min_val) = constraints.clone().minimize(&gradient);
     let (_, max_val) = constraints.clone().maximize(&gradient);
 
-    let min_int = min_val.sub_frac(&offset).ceil();
-    let max_int = max_val.sub_frac(&offset).floor();
+    let min_int = FracOps::ceil(&min_val.sub_frac(&offset));
+    let max_int = FracOps::floor(&max_val.sub_frac(&offset));
 
     if min_int > max_int {
         return 0;
     }
 
     // Number of integer values = max_int - min_int + 1
-    let count = &max_int - &min_int + BigInt::one();
+    let count = max_int.int_sub(&min_int).int_add(&Int::int_one());
     // Clamp to i64 (should always fit for reasonable problems)
-    use num_traits::ToPrimitive;
-    count.to_i64().unwrap_or(i64::MAX)
+    count.int_to_i64()
 }
 
 /// Enumerate only a subset of depth-0 branches [branch_start, branch_end).
@@ -261,16 +259,16 @@ fn collect_solutions(node: &SearchNode, results: &mut Vec<BigVector>) {
     let (_, min_val) = node.constraints.clone().minimize(&gradient);
     let (_, max_val) = node.constraints.clone().maximize(&gradient);
 
-    let min_int = min_val.sub_frac(&offset).ceil();
-    let max_int = max_val.sub_frac(&offset).floor();
+    let min_int = FracOps::ceil(&min_val.sub_frac(&offset));
+    let max_int = FracOps::floor(&max_val.sub_frac(&offset));
 
     if min_int > max_int {
         return;
     }
 
     // Enumerate from center outward (like the Java version)
-    let lower_start: BigInt = (&min_int + &max_int) >> 1;
-    let upper_start = &lower_start + BigInt::one();
+    let lower_start = min_int.int_add(&max_int).int_shr(1);
+    let upper_start = lower_start.int_add(&Int::int_one());
 
     let mut lower = lower_start.clone();
     let mut upper = upper_start;
@@ -282,14 +280,14 @@ fn collect_solutions(node: &SearchNode, results: &mut Vec<BigVector>) {
         if lower >= min_int {
             let child = create_child(node, index, &lower);
             collect_solutions(&child, results);
-            lower -= BigInt::one();
+            lower = lower.int_sub(&Int::int_one());
             either = true;
         }
 
         if upper <= max_int {
             let child = create_child(node, index, &upper);
             collect_solutions(&child, results);
-            upper += BigInt::one();
+            upper = upper.int_add(&Int::int_one());
             either = true;
         }
     }
@@ -312,19 +310,19 @@ fn collect_solutions_depth0_partial(
     let (_, min_val) = node.constraints.clone().minimize(&gradient);
     let (_, max_val) = node.constraints.clone().maximize(&gradient);
 
-    let min_int = min_val.sub_frac(&offset).ceil();
-    let max_int = max_val.sub_frac(&offset).floor();
+    let min_int = FracOps::ceil(&min_val.sub_frac(&offset));
+    let max_int = FracOps::floor(&max_val.sub_frac(&offset));
 
     if min_int > max_int {
         return;
     }
 
     // Build the full list of depth-0 integer values in center-outward order
-    let center: BigInt = (&min_int + &max_int) >> 1;
-    let mut all_values: Vec<BigInt> = Vec::new();
+    let center = min_int.int_add(&max_int).int_shr(1);
+    let mut all_values: Vec<Int> = Vec::new();
 
     let mut lower = center.clone();
-    let upper_start = &center + BigInt::one();
+    let upper_start = center.int_add(&Int::int_one());
     let mut upper = upper_start;
     let mut either = true;
 
@@ -332,12 +330,12 @@ fn collect_solutions_depth0_partial(
         either = false;
         if lower >= min_int {
             all_values.push(lower.clone());
-            lower -= BigInt::one();
+            lower = lower.int_sub(&Int::int_one());
             either = true;
         }
         if upper <= max_int {
             all_values.push(upper.clone());
-            upper += BigInt::one();
+            upper = upper.int_add(&Int::int_one());
             either = true;
         }
     }
@@ -356,10 +354,10 @@ fn collect_solutions_depth0_partial(
     }
 }
 
-fn create_child(parent: &SearchNode, index: usize, i: &BigInt) -> SearchNode {
+fn create_child(parent: &SearchNode, index: usize, i: &Int) -> SearchNode {
     let gradient = parent.inverse.get_row(index);
     let offset = parent.origin.get(index).clone();
-    let value = BigFraction::from_bigint(i.clone());
+    let value = BigFraction::frac_from_bigint(i.clone());
 
     let next_constraints = parent.constraints.with_strict_bound(&gradient, &value.add_frac(&offset));
     let basis_vec = BigVector::basis(parent.size, index, value);

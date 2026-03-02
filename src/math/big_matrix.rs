@@ -1,4 +1,4 @@
-use super::big_fraction::BigFraction;
+use super::big_fraction::{BigFraction, FracOps};
 use super::big_vector::BigVector;
 
 /// A matrix of BigFraction values stored in row-major order.
@@ -12,7 +12,7 @@ pub struct BigMatrix {
 impl BigMatrix {
     pub fn new(rows: usize, cols: usize) -> Self {
         BigMatrix {
-            data: vec![BigFraction::zero(); rows * cols],
+            data: vec![BigFraction::frac_zero(); rows * cols],
             rows,
             cols,
         }
@@ -21,7 +21,7 @@ impl BigMatrix {
     pub fn identity(size: usize) -> Self {
         let mut m = BigMatrix::new(size, size);
         for i in 0..size {
-            m.set(i, i, BigFraction::one());
+            m.set(i, i, BigFraction::frac_one());
         }
         m
     }
@@ -106,7 +106,7 @@ impl BigMatrix {
         let mut result = BigMatrix::new(self.rows, other.cols);
         for r in 0..self.rows {
             for c in 0..other.cols {
-                let mut sum = BigFraction::zero();
+                let mut sum = BigFraction::frac_zero();
                 for k in 0..self.cols {
                     sum = sum.add_frac(&self.get(r, k).mul_frac(other.get(k, c)));
                 }

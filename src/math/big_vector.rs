@@ -1,5 +1,5 @@
-use super::big_fraction::BigFraction;
-use num_bigint::BigInt;
+use super::big_fraction::{BigFraction, FracOps};
+use super::int_type::Int;
 use std::fmt;
 
 /// A vector of BigFraction values.
@@ -11,7 +11,7 @@ pub struct BigVector {
 impl BigVector {
     pub fn new(dimension: usize) -> Self {
         BigVector {
-            data: vec![BigFraction::zero(); dimension],
+            data: vec![BigFraction::frac_zero(); dimension],
         }
     }
 
@@ -32,7 +32,7 @@ impl BigVector {
     }
 
     pub fn magnitude_sq(&self) -> BigFraction {
-        let mut mag = BigFraction::zero();
+        let mut mag = BigFraction::frac_zero();
         for i in 0..self.dimension() {
             mag = mag.add_frac(&self.data[i].mul_frac(&self.data[i]));
         }
@@ -87,7 +87,7 @@ impl BigVector {
         }
     }
 
-    pub fn multiply_bigint(&self, scalar: &BigInt) -> BigVector {
+    pub fn multiply_bigint(&self, scalar: &Int) -> BigVector {
         BigVector {
             data: self.data.iter().map(|x| x.mul_bigint(scalar)).collect(),
         }
@@ -106,7 +106,7 @@ impl BigVector {
 
     pub fn dot(&self, other: &BigVector) -> BigFraction {
         assert_eq!(self.dimension(), other.dimension());
-        let mut result = BigFraction::zero();
+        let mut result = BigFraction::frac_zero();
         for i in 0..self.dimension() {
             result = result.add_frac(&self.data[i].mul_frac(&other.data[i]));
         }
@@ -125,7 +125,7 @@ impl BigVector {
     }
 
     pub fn basis_one(size: usize, i: usize) -> BigVector {
-        Self::basis(size, i, BigFraction::one())
+        Self::basis(size, i, BigFraction::frac_one())
     }
 }
 

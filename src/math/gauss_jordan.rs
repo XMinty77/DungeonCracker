@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+use super::big_fraction::FracOps;
 use super::big_matrix::BigMatrix;
 
 /// Gauss-Jordan elimination. Returns pivot_rows array:

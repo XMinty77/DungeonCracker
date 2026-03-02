@@ -6,6 +6,7 @@ description = "Minecraft dungeon seed cracker — recovers world seeds from dung
 license = "MIT"
 readme = "README.md"
 keywords = ["minecraft", "seed", "dungeon", "lattice", "cracker"]
+default-run = "dungeon_cracker"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -16,17 +17,19 @@ path = "src/main.rs"
 
 [dependencies]
 num-bigint = "0.4"
-num-rational = "0.4"
 num-traits = "0.2"
 num-integer = "0.1"
 wasm-bindgen = { version = "0.2", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+rug = { version = "1", optional = true }
 
 [features]
-default = []
+default = ["gmp"]
 wasm = ["wasm-bindgen", "serde", "serde_json"]
+gmp = ["rug"]
 
 [profile.release]
 opt-level = 3
 lto = true
+codegen-units = 1

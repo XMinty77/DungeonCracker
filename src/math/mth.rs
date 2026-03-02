@@ -1,6 +1,4 @@
-use num_bigint::BigInt;
-use num_integer::Integer;
-use num_traits::Zero;
+use super::int_type::{Int, IntOps};
 
 pub const MASK_8: i64 = 0xFF;
 pub const MASK_16: i64 = 0xFFFF;
@@ -55,11 +53,16 @@ pub fn mod_inverse_16(x: i64) -> i64 {
     inv
 }
 
-pub fn lcm_bigint(a: &BigInt, b: &BigInt) -> BigInt {
-    let g = a.gcd(b);
-    if g.is_zero() {
-        BigInt::zero()
+pub fn lcm_int(a: &Int, b: &Int) -> Int {
+    let g = a.int_gcd(b);
+    if g.int_is_zero() {
+        Int::int_zero()
     } else {
-        a * (b / g)
+        a.int_mul(&b.int_div(&g))
     }
+}
+
+/// Backwards-compatible alias.
+pub fn lcm_bigint(a: &Int, b: &Int) -> Int {
+    lcm_int(a, b)
 }

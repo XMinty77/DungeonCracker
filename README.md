@@ -35,7 +35,7 @@ dungeon_cracker 320 29 -418 1.13 notdesert 9x7 \
 cargo build --release
 
 # WebAssembly (requires wasm-pack)
-wasm-pack build --target web -- --features wasm
+wasm-pack build --target web -- --no-default-features --features wasm
 ```
 
 ## Credits

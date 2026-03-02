@@ -2,24 +2,23 @@ use crate::lcg::lcg::LCG;
 use crate::lcg::rand::Rand;
 use crate::lattice::enumerate;
 use crate::lattice::lll;
-use crate::math::big_fraction::BigFraction;
+use crate::math::big_fraction::{BigFraction, FracOps};
 use crate::math::big_matrix::BigMatrix;
 use crate::math::big_vector::BigVector;
+use crate::math::int_type::{Int, IntOps};
 use crate::math::lu_decomposition;
 use crate::math::mth;
 use crate::reverser::filtered_skip::FilteredSkip;
-use num_bigint::BigInt;
-use num_traits::Zero;
 
 /// Combined RandomReverser + JavaRandomReverser.
 /// Builds lattice constraints from java.util.Random call observations,
 /// then uses LLL reduction + enumeration to find matching seeds.
 pub struct JavaRandomReverser {
-    modulus: BigInt,
-    mult: BigInt,
+    modulus: Int,
+    mult: Int,
     lcg: LCG,
-    mins: Vec<BigInt>,
-    maxes: Vec<BigInt>,
+    mins: Vec<Int>,
+    maxes: Vec<Int>,
     call_indices: Vec<i64>,
     filtered_skips: Vec<FilteredSkip>,
     lattice: Option<BigMatrix>,
@@ -31,8 +30,8 @@ pub struct JavaRandomReverser {
 impl JavaRandomReverser {
     pub fn new(filtered_skips: Vec<FilteredSkip>) -> Self {
         let lcg = LCG::JAVA;
-        let modulus = BigInt::from(lcg.modulus);
-        let mult = BigInt::from(lcg.multiplier) % &modulus;
+        let modulus = Int::int_from_i64(lcg.modulus);
+        let mult = Int::int_from_i64(lcg.multiplier).int_rem(&modulus);
         JavaRandomReverser {
             modulus,
             mult,
@@ -50,14 +49,14 @@ impl JavaRandomReverser {
 
     /// Add a constraint on the measured seed value (in internal 48-bit representation).
     pub fn add_measured_seed(&mut self, min: i64, max: i64) {
-        self.add_measured_seed_big(BigInt::from(min), BigInt::from(max));
+        self.add_measured_seed_big(Int::int_from_i64(min), Int::int_from_i64(max));
     }
 
-    pub fn add_measured_seed_big(&mut self, min: BigInt, max: BigInt) {
+    pub fn add_measured_seed_big(&mut self, min: Int, max: Int) {
         let min = mod_big(&min, &self.modulus);
         let mut max = mod_big(&max, &self.modulus);
         if max < min {
-            max += &self.modulus;
+            max = max.int_add(&self.modulus);
         }
 
         self.mins.push(min);
@@ -79,36 +78,36 @@ impl JavaRandomReverser {
             }
         }
 
-        let exp = BigInt::from(self.call_indices[dim - 1] - self.call_indices[0]);
-        let temp_mult = mod_pow_big(&self.mult, &exp, &self.modulus);
-        new_lattice.set(0, dim - 1, BigFraction::from_bigint(temp_mult));
-        new_lattice.set(dim, dim - 1, BigFraction::from_bigint(self.modulus.clone()));
+        let exp = Int::int_from_i64(self.call_indices[dim - 1] - self.call_indices[0]);
+        let temp_mult = self.mult.int_modpow(&exp, &self.modulus);
+        new_lattice.set(0, dim - 1, BigFraction::frac_from_bigint(temp_mult));
+        new_lattice.set(dim, dim - 1, BigFraction::frac_from_bigint(self.modulus.clone()));
         self.lattice = Some(new_lattice);
     }
 
     /// Add a constraint on the seed modulo a different modulus.
     pub fn add_modulo_measured_seed(&mut self, min: i64, max: i64, measured_mod: i64) {
         self.add_modulo_measured_seed_big(
-            BigInt::from(min),
-            BigInt::from(max),
-            BigInt::from(measured_mod),
+            Int::int_from_i64(min),
+            Int::int_from_i64(max),
+            Int::int_from_i64(measured_mod),
         );
     }
 
-    pub fn add_modulo_measured_seed_big(&mut self, min: BigInt, max: BigInt, measured_mod: BigInt) {
+    pub fn add_modulo_measured_seed_big(&mut self, min: Int, max: Int, measured_mod: Int) {
         let min = mod_big(&min, &measured_mod);
         let mut max = mod_big(&max, &measured_mod);
         if max < min {
-            max += &measured_mod;
+            max = max.int_add(&measured_mod);
         }
 
-        let residue = &self.modulus % &measured_mod;
-        if !residue.is_zero() {
-            self.success_chance *= 1.0 - residue.to_f64_approx() / self.lcg.modulus as f64;
+        let residue = self.modulus.int_rem(&measured_mod);
+        if !residue.int_is_zero() {
+            self.success_chance *= 1.0 - residue.int_to_f64_approx() / self.lcg.modulus as f64;
 
             // First condition: is the seed real
-            self.mins.push(BigInt::zero());
-            self.maxes.push(&self.modulus - &residue);
+            self.mins.push(Int::int_zero());
+            self.maxes.push(self.modulus.int_sub(&residue));
             self.current_call_index += 1;
             self.call_indices.push(self.current_call_index);
 
@@ -132,13 +131,13 @@ impl JavaRandomReverser {
                 }
             }
 
-            let exp = BigInt::from(self.call_indices[dim - 1] - self.call_indices[0]);
-            let temp_mult = mod_pow_big(&self.mult, &exp, &self.modulus);
-            new_lattice.set(0, dim - 2, BigFraction::from_bigint(temp_mult.clone()));
-            new_lattice.set(0, dim - 1, BigFraction::from_bigint(temp_mult));
-            new_lattice.set(dim - 1, dim - 1, BigFraction::from_bigint(self.modulus.clone()));
-            new_lattice.set(dim - 1, dim - 2, BigFraction::from_bigint(self.modulus.clone()));
-            new_lattice.set(dim, dim - 1, BigFraction::from_bigint(measured_mod));
+            let exp = Int::int_from_i64(self.call_indices[dim - 1] - self.call_indices[0]);
+            let temp_mult = self.mult.int_modpow(&exp, &self.modulus);
+            new_lattice.set(0, dim - 2, BigFraction::frac_from_bigint(temp_mult.clone()));
+            new_lattice.set(0, dim - 1, BigFraction::frac_from_bigint(temp_mult));
+            new_lattice.set(dim - 1, dim - 1, BigFraction::frac_from_bigint(self.modulus.clone()));
+            new_lattice.set(dim - 1, dim - 2, BigFraction::frac_from_bigint(self.modulus.clone()));
+            new_lattice.set(dim, dim - 1, BigFraction::frac_from_bigint(measured_mod));
             self.lattice = Some(new_lattice);
         } else {
             // Modulus divides evenly
@@ -161,10 +160,10 @@ impl JavaRandomReverser {
                 }
             }
 
-            let exp = BigInt::from(self.call_indices[dim - 1] - self.call_indices[0]);
-            let temp_mult = mod_pow_big(&self.mult, &exp, &self.modulus);
-            new_lattice.set(0, dim - 1, BigFraction::from_bigint(temp_mult));
-            new_lattice.set(dim, dim - 1, BigFraction::from_bigint(measured_mod));
+            let exp = Int::int_from_i64(self.call_indices[dim - 1] - self.call_indices[0]);
+            let temp_mult = self.mult.int_modpow(&exp, &self.modulus);
+            new_lattice.set(0, dim - 1, BigFraction::frac_from_bigint(temp_mult));
+            new_lattice.set(dim, dim - 1, BigFraction::frac_from_bigint(measured_mod));
             self.lattice = Some(new_lattice);
         }
     }
@@ -288,9 +287,9 @@ impl JavaRandomReverser {
         let mut rand = Rand::of_internal_seed(&self.lcg, 0);
 
         for i in 0..dims {
-            lower.set(i, BigFraction::from_bigint(self.mins[i].clone()));
-            upper.set(i, BigFraction::from_bigint(self.maxes[i].clone()));
-            offset.set(i, BigFraction::from_bigint(BigInt::from(rand.get_seed())));
+            lower.set(i, BigFraction::frac_from_bigint(self.mins[i].clone()));
+            upper.set(i, BigFraction::frac_from_bigint(self.maxes[i].clone()));
+            offset.set(i, BigFraction::frac_from_bigint(Int::int_from_i64(rand.get_seed())));
 
             if i != dims - 1 {
                 rand.advance(self.call_indices[i + 1] - self.call_indices[i]);
@@ -308,8 +307,8 @@ impl JavaRandomReverser {
         let mut seeds: Vec<i64> = results
             .iter()
             .filter_map(|vec| {
-                let n = vec.get(0).numerator();
-                Some(r.next_seed(bigint_to_i64(n)))
+                let n = vec.get(0).numerator_int();
+                Some(r.next_seed(n.int_to_i64()))
             })
             .collect();
 
@@ -334,21 +333,21 @@ impl JavaRandomReverser {
         let dims = self.dimensions;
 
         // Compute side lengths
-        let mut side_lengths: Vec<BigInt> = Vec::with_capacity(dims);
+        let mut side_lengths: Vec<Int> = Vec::with_capacity(dims);
         for i in 0..dims {
-            side_lengths.push(&self.maxes[i] - &self.mins[i] + BigInt::from(1i64));
+            side_lengths.push(self.maxes[i].int_sub(&self.mins[i]).int_add_i64(1));
         }
 
         // Compute LCM
-        let mut lcm = BigInt::from(1i64);
+        let mut lcm = Int::int_one();
         for sl in &side_lengths {
-            lcm = mth::lcm_bigint(&lcm, sl);
+            lcm = mth::lcm_int(&lcm, sl);
         }
 
         // Scaling matrix
         let mut scales = BigMatrix::new(dims, dims);
         for i in 0..dims {
-            scales.set(i, i, BigFraction::from_bigint(&lcm / &side_lengths[i]));
+            scales.set(i, i, BigFraction::frac_from_bigint(lcm.int_div(&side_lengths[i])));
         }
 
         let unscaled = self.lattice.as_ref().unwrap().clone();
@@ -364,42 +363,9 @@ impl JavaRandomReverser {
     }
 }
 
-/// BigInt modulo (always non-negative).
-fn mod_big(a: &BigInt, m: &BigInt) -> BigInt {
-    ((a % m) + m) % m
-}
-
-/// Modular exponentiation for BigInt.
-fn mod_pow_big(base: &BigInt, exp: &BigInt, modulus: &BigInt) -> BigInt {
-    base.modpow(exp, modulus)
-}
-
-/// Convert BigInt to i64 (truncating).
-fn bigint_to_i64(n: &BigInt) -> i64 {
-    // For seed values, we may need wrapping behavior.
-    // BigInt's to_i64 returns None if out of range, so we use byte manipulation instead.
-    let bytes = n.to_signed_bytes_le();
-    let mut result: i64 = 0;
-    for (i, &b) in bytes.iter().enumerate().take(8) {
-        result |= (b as u8 as i64) << (i * 8);
-    }
-    // Sign extend if the number is negative
-    if n < &BigInt::zero() && bytes.len() < 8 {
-        for i in bytes.len()..8 {
-            result |= 0xFFi64 << (i * 8);
-        }
-    }
-    result
-}
-
-/// Extension trait for BigInt to get f64 approximation
-trait BigIntToF64 {
-    fn to_f64_approx(&self) -> f64;
-}
-
-impl BigIntToF64 for BigInt {
-    fn to_f64_approx(&self) -> f64 {
-        use num_traits::ToPrimitive;
-        ToPrimitive::to_f64(self).unwrap_or(0.0)
-    }
+/// Int modulo (always non-negative).
+fn mod_big(a: &Int, m: &Int) -> Int {
+    let r = a.int_rem(m);
+    let shifted = r.int_add(m);
+    shifted.int_rem(m)
 }

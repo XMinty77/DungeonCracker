@@ -1,4 +1,4 @@
-use super::big_fraction::BigFraction;
+use super::big_fraction::{BigFraction, FracOps};
 use super::big_matrix::BigMatrix;
 
 /// LU Decomposition for BigMatrix (exact arithmetic with BigFraction).
@@ -13,10 +13,10 @@ pub fn inverse(matrix: &BigMatrix) -> BigMatrix {
     // Decomposition
     for i in 0..size {
         let mut pivot = None;
-        let mut biggest = BigFraction::zero();
+        let mut biggest = BigFraction::frac_zero();
 
         for row in i..size {
-            let d = m.get(row, i).abs();
+            let d = m.get(row, i).frac_abs();
             if d > biggest {
                 biggest = d;
                 pivot = Some(row);
