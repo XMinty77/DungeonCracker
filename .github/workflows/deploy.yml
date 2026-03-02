@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [stable]
   workflow_dispatch:
 
 permissions:
@@ -42,7 +42,7 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Build WASM
-        run: wasm-pack build --release --target web -- --features wasm
+        run: wasm-pack build --release --target web -- --no-default-features --features wasm
 
       # ── Copy WASM output into Next.js project ──
       - name: Copy WASM assets
